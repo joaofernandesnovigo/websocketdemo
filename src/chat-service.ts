@@ -190,7 +190,7 @@ export class ChatService {
             };
 
             this.log.info(`Processing message ${message.id} from room ${roomId}`);
-            this.sendMessageToClient(roomId, message); // Client side sees sent message in its original state
+             // Client side sees sent message in its original state
 
             try {
                 this.log.info("ENTROU NO TRY")
@@ -212,6 +212,7 @@ export class ChatService {
                     createdAt: message.createdAt,
                 };
                 const sla = messageSender(messageDbRow);
+                this.sendMessageToClient(roomId, message);
 
                 if (!isAttendant && !this.openTickets.includes(roomId)) {
                     this.log.info(`| ${process.env.IA_GATEWAY} | ${process.env.CHATFLOW_ID} |`);
