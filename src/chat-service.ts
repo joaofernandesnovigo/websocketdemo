@@ -190,10 +190,28 @@ export class ChatService {
             };
 
             this.log.info(`Processing message ${message.id} from room ${roomId}`);
-             // Client side sees sent message in its original state
+            this.sendMessageToClient(roomId, message); // Client side sees sent message in its original state
+
+            if (!isAttendant && !this.openTickets.includes(roomId)) {
+                this.log.info(`| ${process.env.IA_GATEWAY} | ${process.env.CHATFLOW_ID} |`);
+                const response = await sendMessage(socket.data.roomId, content);
+                this.log.info(`Send message ${response.data.text}`);
+                socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
+                    id: response.data.chatMessageId,
+                    content: response.data.text,
+                    from: socket.data.instance.props.chat.id,
+                    createdAt: "Hoje",
+                    status: MessageStatus.Sent,
+                });
+            }
+
+            if (fromLang != toLang && fromLang && toLang) {
+                this.log.info(`Translating message from: ${fromLang} to: ${toLang}`);
+            } else {
+                this.log.info("Same language");
+            }
 
             try {
-                this.log.info("ENTROU NO TRY")
                 const messageDbRow: MessageDbRow = {
                     id: message.id,
                     from: `${socket.data.roomId}${isAttendant ? `%40${CHAT_CHANNEL_DOMAIN}@desk.msging.net` : `@${CHAT_CHANNEL_DOMAIN}`}`,
@@ -211,22 +229,7 @@ export class ChatService {
                     actor: isAttendant ? MessageActors.Assistant : MessageActors.User,
                     createdAt: message.createdAt,
                 };
-                const sla = messageSender(messageDbRow);
-                this.sendMessageToClient(roomId, message);
-
-                if (!isAttendant && !this.openTickets.includes(roomId)) {
-                    // this.log.info(`| ${process.env.IA_GATEWAY} | ${process.env.CHATFLOW_ID} |`);
-                    const response = await sendMessage(socket.data.roomId, content);
-                    this.log.info(`Send message ${response.data.text}`);
-                    socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
-                        id: response.data.chatMessageId,
-                        content: response.data.text,
-                        from: socket.data.instance.props.chat.id,
-                        createdAt: "Hoje",
-                        status: MessageStatus.Sent,
-                    });
-                }
-                this.log.info(sla)
+                messageSender(messageDbRow);
             } catch (e) {
                 this.log.error(`Send translating message to Mia error ${e}`);
                 console.error(e);
