@@ -17,7 +17,6 @@ export const createFlowiseAPI = () => {
         baseURL: process.env.IA_GATEWAY,
         headers: {
             "Content-Type": "application/json; charset=utf-8",
-            "Authorization": "Bearer 3b6dc2-D-vVLCc7Uf4LgBq2mUrEfbfrF8wxoIIYb-pk"
         },
     });
 
