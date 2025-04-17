@@ -163,6 +163,7 @@ export class ChatService {
     listenForClient(socket: Socket) {
         this.log.info("Setting client listener for socket");
         socket.on(EVENTS.EVENT_CLIENT_SEND_MESSAGE, async ({ content, toLang, fromLang, agent }: NewClientMessageDto) => {
+            try {
             const isAttendant = agent != undefined;
             const roomId: string = socket.data.roomId;
 
@@ -211,7 +212,6 @@ export class ChatService {
                 this.log.info("Same language");
             }
 
-            try {
                 this.log.info("ENTROU NO TRY")
                 const messageDbRow: MessageDbRow = {
                     id: message.id,
