@@ -78,9 +78,9 @@ export async function getRoomMessages(roomId: string, botId: string) {
 export async function messageSender(message: MessageDbRow) {
     const botId = message.from;
     const bot = await sql<Instance[]>`
-        SELECT id, name, partner_id
+        SELECT id, name
         FROM bots
-        WHERE OR props->'chat'->>'id' = ${botId}
+        WHERE props->'chat'->>'id' = ${botId}
     `;
 
     const botData = bot[0];
