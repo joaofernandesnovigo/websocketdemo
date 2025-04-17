@@ -40,7 +40,7 @@ export type MessageDbRow = {
  * @param {string} botId - O identificador do bot
  * @returns {Promise<MessageDbRow[]>} Lista de mensagens encontradas na sala
  */
-export async function getRoomMessages (roomId: string, botId: string) {
+export async function getRoomMessages(roomId: string, botId: string) {
     return sql<MessageDbRow[]>`
         SELECT m.*
         FROM messages m
@@ -75,7 +75,7 @@ export async function getRoomMessages (roomId: string, botId: string) {
  * @param {MessageDbRow} message - A mensagem a ser processada e salva
  * @returns {Promise<string>} Uma string contendo informações sobre o processamento realizado
  */
-export async function contextMessageSender (message: MessageDbRow) {
+export async function messageSender(message: MessageDbRow) {
     const botId = message.from;
     const bot = await sql<Instance[]>`
         SELECT id, name, partner_id

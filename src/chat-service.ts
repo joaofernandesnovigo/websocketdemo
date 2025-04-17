@@ -18,13 +18,13 @@ import {
     ServerMessageDto,
     StatusDTO,
 } from "./types";
-import { contextMessageSender, getRoomMessages, MessageDbRow } from "./db/messages";
+import { messageSender, getRoomMessages, MessageDbRow } from "./db/messages";
 import { getInstanceByChatId, getInstanceById, InstanceDbRow } from "./db/bots";
 import { getRoomPerson } from "./db/people";
 import { mapMessageDTO } from "./utils";
 import * as console from "node:console";
-import {createChatCompletion} from "./serivces/openai";
-import {sendMessage} from "./serivces/flowise/flowise";
+import { createChatCompletion } from "./serivces/openai";
+import { sendMessage } from "./serivces/flowise/flowise";
 import * as process from "node:process";
 
 export class ChatService {
@@ -36,23 +36,23 @@ export class ChatService {
 
     private _io?: Server;
 
-    get io (): Server {
+    get io(): Server {
         if (!this._io) {
             throw Error("Socket IO is not defined");
         }
         return this._io;
     }
 
-    set io (value: Server) {
+    set io(value: Server) {
         this._io = value;
     }
 
-    constructor ({ server }: { server: FastifyInstance }) {
+    constructor({ server }: { server: FastifyInstance }) {
         this.server = server;
         this.log = server.log;
     }
 
-    connect () {
+    connect() {
         const connectedServer = this.server as FastifyInstance & {
             io: Server;
         };
@@ -64,7 +64,7 @@ export class ChatService {
         this.io.on("connection", this.initSocket.bind(this));
     }
 
-    async initSocket (socket: Socket) {
+    async initSocket(socket: Socket) {
         this.log.info(`Socket #${socket.id} ${socket.recovered ? "re-" : ""}connected`);
 
         socket.on("disconnect", () => {
@@ -85,7 +85,7 @@ export class ChatService {
         // this.listenForTranslation(socket);
     }
 
-    async initInstance (socket: Socket) {
+    async initInstance(socket: Socket) {
         socket.data.instance = await getInstanceByChatId(socket.handshake.auth.instance?.chatId || "");
         if (!socket.data.instance) {
             this.closeSocket(socket, "Chat Instance Error!");
@@ -102,7 +102,7 @@ export class ChatService {
         return true;
     }
 
-    async initRoom (socket: Socket) {
+    async initRoom(socket: Socket) {
         const roomId = socket.handshake.auth.roomId || v4();
         this.log.info(`Init room ${roomId}`);
 
@@ -124,7 +124,7 @@ export class ChatService {
         }
     }
 
-    async initConversation (socket: Socket) {
+    async initConversation(socket: Socket) {
         if (!socket.recovered) {
             const messages = await getRoomMessages(socket.data.roomId, socket.data.instance.id);
             this.log.info(`Sending initial messages: ${messages.length}`);
@@ -133,12 +133,25 @@ export class ChatService {
         }
     }
 
-    listenForContext (socket: Socket) {
+    listenForContext(socket: Socket) {
         this.log.info("Setting up context listener for socket");
-        socket.on(EVENTS.EVENT_SET_CONTEXT, async ( { context }: ContextSetterDTO )  => {
+        socket.on(EVENTS.EVENT_SET_CONTEXT, async ({ context }: ContextSetterDTO) => {
             try {
                 sendMessage(socket.data.roomId, context ?? "Error fetching user context data.");
-                // this.log.info(`Message Saved: ${JSON.stringify(messageDbRow)}`);
+                const id = v4();
+                const messageDbRow: MessageDbRow = {
+                    id: id,
+                    from: `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN} `,
+                    to: socket.data.instance.props.chat.id,
+                    content: context ?? "Error fetching user context data.",
+                    metadata: {
+                        "#uniqueId": id,
+                    },
+                    type: MessageType.Text,
+                    actor: MessageActors.System,
+                    createdAt: new Date().toISOString(),
+                };
+                messageSender(messageDbRow)
 
             } catch (e) {
                 this.log.error(`Send context to Mia error ${e}`);
@@ -147,9 +160,9 @@ export class ChatService {
         });
     }
 
-    listenForClient (socket: Socket) {
+    listenForClient(socket: Socket) {
         this.log.info("Setting client listener for socket");
-        socket.on(EVENTS.EVENT_CLIENT_SEND_MESSAGE, async ({ content, toLang, fromLang, agent }: NewClientMessageDto ) => {
+        socket.on(EVENTS.EVENT_CLIENT_SEND_MESSAGE, async ({ content, toLang, fromLang, agent }: NewClientMessageDto) => {
             const isAttendant = agent != undefined;
             const roomId: string = socket.data.roomId;
 
@@ -158,11 +171,11 @@ export class ChatService {
             }
 
             let translatedMessage = "";
-            
-            if ( fromLang !== toLang && fromLang && toLang && process.env.AUTO_TRANSLATE) {
+
+            if (fromLang !== toLang && fromLang && toLang && process.env.AUTO_TRANSLATE) {
                 translatedMessage = await this.translateMessage(content, toLang, fromLang);
             }
-            
+
             const message: ServerMessageDto = {
                 id: v4(),
                 content: translatedMessage,
@@ -201,22 +214,22 @@ export class ChatService {
             try {
                 const messageDbRow: MessageDbRow = {
                     id: message.id,
-                    from: `${socket.data.roomId}${isAttendant ? `%40${CHAT_CHANNEL_DOMAIN}@desk.msging.net` : `@${CHAT_CHANNEL_DOMAIN}` }`,
+                    from: `${socket.data.roomId}${isAttendant ? `%40${CHAT_CHANNEL_DOMAIN}@desk.msging.net` : `@${CHAT_CHANNEL_DOMAIN}`}`,
                     to: socket.data.instance.props.chat.id,
                     content: message.content.toString(),
                     type: message.type,
                     metadata:
-                        {
-                            "#uniqueId": message.id,
-                            originalMessage: message.content.toString() ?? "",
-                            fromLang,
-                            toLang,
-                            ... isAttendant ? { agent } : {},
-                        },
+                    {
+                        "#uniqueId": message.id,
+                        originalMessage: message.content.toString() ?? "",
+                        fromLang,
+                        toLang,
+                        ...isAttendant ? { agent } : {},
+                    },
                     actor: isAttendant ? MessageActors.Assistant : MessageActors.User,
                     createdAt: message.createdAt,
                 };
-                console.log(messageDbRow);
+                messageSender(messageDbRow);
             } catch (e) {
                 this.log.error(`Send translating message to Mia error ${e}`);
                 console.error(e);
@@ -229,7 +242,7 @@ export class ChatService {
         });
     }
 
-    async translateMessage (content: string, toLang: string, fromLang: string) {
+    async translateMessage(content: string, toLang: string, fromLang: string) {
         this.log.info(`Translating message from ${fromLang} to ${toLang}`);
         const query = [{
             role: "user",
@@ -250,7 +263,7 @@ export class ChatService {
         }
     }
 
-    sendPersonDataToClient (socket: Socket) {
+    sendPersonDataToClient(socket: Socket) {
         this.log.info(`Sending person data to room ${socket.data.roomId}`);
 
         const { name, email, phoneNumber } = socket.data.person || {};
@@ -261,7 +274,7 @@ export class ChatService {
         });
     }
 
-    async getInstanceForSystemMessage (instanceId: number, systemToken: string) {
+    async getInstanceForSystemMessage(instanceId: number, systemToken: string) {
         const instance = await getInstanceById(instanceId);
         if (!instance) {
             throw Error("Instance Error!");
@@ -275,7 +288,7 @@ export class ChatService {
         return instance;
     }
 
-    sendSystemMessage (instance: InstanceDbRow, { id, to, type, content }: MiaMessageDto) {
+    sendSystemMessage(instance: InstanceDbRow, { id, to, type, content }: MiaMessageDto) {
         const roomId = to.split("@")[0];
         switch (type) {
             case MessageType.Text: {
@@ -315,20 +328,20 @@ export class ChatService {
         }
     }
 
-    sendMessageToClient (roomId: string, message: ServerMessageDto) {
+    sendMessageToClient(roomId: string, message: ServerMessageDto) {
         this.log.info(`Sending message ${message.id} to client ${roomId}`);
         this.io.to(roomId).emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, message);
     }
 
-    sendChatStateToClient (roomId: string, state: ChatStateDTO) {
+    sendChatStateToClient(roomId: string, state: ChatStateDTO) {
         this.io.to(roomId).emit(EVENTS.EVENT_SERVER_SEND_CHAT_STATE, state);
     }
 
-    sendMessageStatusToClient (roomId: string, status: StatusDTO) {
+    sendMessageStatusToClient(roomId: string, status: StatusDTO) {
         this.io.to(roomId).emit(EVENTS.EVENT_SERVER_SEND_MESSAGE_STATUS, status);
     }
 
-    closeSocket (socket: Socket, message?: string) {
+    closeSocket(socket: Socket, message?: string) {
         if (message) socket.emit(EVENTS.EVENT_ERROR, { message });
         socket.disconnect(true);
     }
