@@ -84,6 +84,7 @@ export async function messageSender(message: MessageDbRow) {
     `;
 
     const botData = bot[0];
+    return `${JSON.stringify(botData)}`
 
     const nameRegex = message.content.match(/Person Name:(.*?),/);
     let name = "";
