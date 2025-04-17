@@ -75,15 +75,14 @@ export async function getRoomMessages(roomId: string, botId: string) {
  * @param {MessageDbRow} message - A mensagem a ser processada e salva
  * @returns {Promise<string>} Uma string contendo informações sobre o processamento realizado
  */
-export async function messageSender(message: MessageDbRow) {
-    const botId = message.from;
+export async function messageSender(message: MessageDbRow, botId: number) {
     const bot = await sql<Instance[]>`
         SELECT id, name
         FROM bots
         WHERE props->'chat'->>'id' = ${botId}
     `;
 
-    const botData = bot;
+    const botData = bot[0];
     return `${botData.id && 'dflsdlasjdkall'}`
 
     // const nameRegex = message.content.match(/Person Name:(.*?),/);
