@@ -83,8 +83,8 @@ export async function messageSender(message: MessageDbRow) {
         WHERE props->'chat'->>'id' = ${botId}
     `;
 
-    const botData = bot[0];
-    return `${botData.id && 'AAAKJBADKJSADK'}`
+    const botData = bot;
+    return `${botData.id && 'dflsdlasjdkall'}`
 
     // const nameRegex = message.content.match(/Person Name:(.*?),/);
     // let name = "";
