@@ -50,7 +50,6 @@ export async function findOrCreatePersonByIdentifier (
             p.props ->> 'messagingIdentifier' = ${identifier}
                 OR (${originalIdentifier ?? null}::text IS NOT NULL AND p.props->>'originalIdentifier' = ${originalIdentifier ?? null}::text)
             )
-          AND p.partner_id = ${partnerId}
           AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
     `.then(rows => rows[0]);
@@ -68,7 +67,6 @@ export async function findOrCreatePersonByIdentifier (
     return await sql<{ id: string }[]>`
         INSERT INTO people (partner_id, name, props)
         VALUES (
-            ${partnerId},
             ${name},
             ${props as never}::jsonb
         )
