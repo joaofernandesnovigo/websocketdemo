@@ -90,7 +90,7 @@ export async function messageSender(message: MessageDbRow, botId: number) {
         name = nameRegex[1];
     }
 
-    const originalPersonIdentifier = message.to.split("/")[0];
+    const originalPersonIdentifier = message.from.split("/")[0];
     const isAttendant = originalPersonIdentifier.includes("@desk.msging.net");
     let personIdentifier = originalPersonIdentifier;
 
