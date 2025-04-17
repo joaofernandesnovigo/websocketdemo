@@ -14,7 +14,6 @@ export async function findOrCreateOpenConversation (
     const existingConversation = await sql<{ id: string }[]>`
         SELECT c.id
         FROM conversations c
-        LEFT JOIN desk_tickets dt ON dt.conversation_id = c.id AND dt.closed_at IS NULL
         WHERE finished_at IS NULL
           AND person_id = ${personId}
           AND bot_id = ${botId}
