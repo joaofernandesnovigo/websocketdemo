@@ -99,7 +99,7 @@ export async function messageSender(message: MessageDbRow) {
         personIdentifier = decodeURIComponent(originalPersonIdentifier.split("@")[0]);
     }
 
-    const person = await findOrCreatePersonByIdentifier(personIdentifier, botData.partnerId, name, originalPersonIdentifier);
+    const person = await findOrCreatePersonByIdentifier(personIdentifier, name, originalPersonIdentifier);
 
     const conversation = await findOrCreateOpenConversation(person.id, botData.id);
 
@@ -109,5 +109,5 @@ export async function messageSender(message: MessageDbRow) {
         VALUES (${message.id}, ${conversation.id}, ${message.from}, ${message.to}, ${message.type}, ${message.content}, ${message.actor}, ${JSON.stringify(message.metadata)}, ${message.createdAt})
     `;
 
-    return `Bot ID : ${botData.partnerId}, Person: Name:${name}/ID:${person.id}/PersonIdentifier: ${personIdentifier}, Conversation: ${conversation.id}, OG Person Identifier: ${originalPersonIdentifier}`;
+    return `Person: Name:${name}/ID:${person.id}/PersonIdentifier: ${personIdentifier}, Conversation: ${conversation.id}, OG Person Identifier: ${originalPersonIdentifier}`;
 }

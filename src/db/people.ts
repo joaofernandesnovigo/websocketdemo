@@ -32,14 +32,12 @@ export async function getRoomPerson (roomId: string) {
  * Busca uma pessoa existente pelo identificador ou cria uma nova se não existir.
  * 
  * @param {string} identifier - O identificador principal da pessoa
- * @param {string} partnerId - O identificador do parceiro associado
  * @param {string} name - O nome da pessoa
  * @param {string} [originalIdentifier] - O identificador original opcional
  * @returns {Promise<{id: string}>} O objeto contendo o ID da pessoa encontrada ou criada
  */
 export async function findOrCreatePersonByIdentifier (
     identifier: string,
-    partnerId: string,
     name: string,
     originalIdentifier?: string,
 ) {
