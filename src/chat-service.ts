@@ -129,6 +129,9 @@ export class ChatService {
             const messages = await getRoomMessages(socket.data.roomId, socket.data.instance.id);
             this.log.info(`Sending initial messages: ${messages.length}`);
 
+            const mappedMessages = messages.map(mapMessageDTO);
+            this.log.info("AQUIIIIIIIIII: ", mappedMessages)
+
             socket.emit(EVENTS.EVENT_SERVER_INIT_MESSAGE_LIST, messages.map(mapMessageDTO));
         }
     }
