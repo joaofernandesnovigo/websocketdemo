@@ -86,29 +86,29 @@ export async function messageSender(message: MessageDbRow) {
     const botData = bot[0];
     return `${JSON.stringify(botData)}`
 
-    const nameRegex = message.content.match(/Person Name:(.*?),/);
-    let name = "";
-    if (nameRegex) {
-        name = nameRegex[1];
-    }
+    // const nameRegex = message.content.match(/Person Name:(.*?),/);
+    // let name = "";
+    // if (nameRegex) {
+    //     name = nameRegex[1];
+    // }
 
-    const originalPersonIdentifier = message.to.split("/")[0];
-    const isAttendant = originalPersonIdentifier.includes("@desk.msging.net");
-    let personIdentifier = originalPersonIdentifier;
+    // const originalPersonIdentifier = message.to.split("/")[0];
+    // const isAttendant = originalPersonIdentifier.includes("@desk.msging.net");
+    // let personIdentifier = originalPersonIdentifier;
 
-    if (isAttendant) {
-        personIdentifier = decodeURIComponent(originalPersonIdentifier.split("@")[0]);
-    }
+    // if (isAttendant) {
+    //     personIdentifier = decodeURIComponent(originalPersonIdentifier.split("@")[0]);
+    // }
 
-    const person = await findOrCreatePersonByIdentifier(personIdentifier, name, originalPersonIdentifier);
+    // const person = await findOrCreatePersonByIdentifier(personIdentifier, name, originalPersonIdentifier);
 
-    const conversation = await findOrCreateOpenConversation(person.id, botData.id);
+    // const conversation = await findOrCreateOpenConversation(person.id, botData.id);
 
 
-    await sql<{ id: number }[]>`
-        INSERT INTO messages (id, conversation_id, "from", "to", type, content, actor, metadata, created_at)
-        VALUES (${message.id}, ${conversation.id}, ${message.from}, ${message.to}, ${message.type}, ${message.content}, ${message.actor}, ${JSON.stringify(message.metadata)}, ${message.createdAt})
-    `;
+    // await sql<{ id: number }[]>`
+    //     INSERT INTO messages (id, conversation_id, "from", "to", type, content, actor, metadata, created_at)
+    //     VALUES (${message.id}, ${conversation.id}, ${message.from}, ${message.to}, ${message.type}, ${message.content}, ${message.actor}, ${JSON.stringify(message.metadata)}, ${message.createdAt})
+    // `;
 
-    return `Person: Name:${name}/ID:${person.id}/PersonIdentifier: ${personIdentifier}, Conversation: ${conversation.id}, OG Person Identifier: ${originalPersonIdentifier}`;
+    // return `Person: Name:${name}/ID:${person.id}/PersonIdentifier: ${personIdentifier}, Conversation: ${conversation.id}, OG Person Identifier: ${originalPersonIdentifier}`;
 }
