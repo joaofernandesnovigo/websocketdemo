@@ -212,6 +212,7 @@ export class ChatService {
             }
 
             try {
+                this.log.info("ENTROU NO TRY")
                 const messageDbRow: MessageDbRow = {
                     id: message.id,
                     from: `${socket.data.roomId}${isAttendant ? `%40${CHAT_CHANNEL_DOMAIN}@desk.msging.net` : `@${CHAT_CHANNEL_DOMAIN}`}`,
