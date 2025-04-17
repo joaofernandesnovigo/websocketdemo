@@ -63,7 +63,7 @@ export async function findOrCreatePersonByIdentifier (
     };
 
     return await sql<{ id: string }[]>`
-        INSERT INTO people (partner_id, name, props)
+        INSERT INTO people (name, props)
         VALUES (
             ${name},
             ${props as never}::jsonb

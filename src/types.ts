@@ -92,5 +92,4 @@ export type MiaRequestParams = {
 export type Instance = {
     id: number;
     name: string;
-    partnerId: string;
 };
