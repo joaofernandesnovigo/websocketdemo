@@ -75,7 +75,7 @@ export async function getRoomMessages(roomId: string, botId: string) {
  * @param {MessageDbRow} message - A mensagem a ser processada e salva
  * @returns {Promise<string>} Uma string contendo informações sobre o processamento realizado
  */
-export async function messageSender(message: MessageDbRow, botId: number) {
+export async function messageSender(message: MessageDbRow, botId: number, originalPersonIdentifier: string) {
     const bot = await sql<Instance[]>`
         SELECT id, name
         FROM bots
@@ -90,7 +90,7 @@ export async function messageSender(message: MessageDbRow, botId: number) {
         name = nameRegex[1];
     }
 
-    const originalPersonIdentifier = message.from.split("/")[0];
+    
     const isAttendant = originalPersonIdentifier.includes("@desk.msging.net");
     let personIdentifier = originalPersonIdentifier;
 

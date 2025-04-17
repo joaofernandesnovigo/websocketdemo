@@ -151,7 +151,7 @@ export class ChatService {
                     actor: MessageActors.System,
                     createdAt: new Date().toISOString(),
                 };
-                messageSender(messageDbRow, socket.data.instance.props.chat.id)
+                messageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`)
 
             } catch (e) {
                 this.log.error(`Send context to Mia error ${e}`);
@@ -229,7 +229,7 @@ export class ChatService {
                     actor: isAttendant ? MessageActors.Assistant : MessageActors.User,
                     createdAt: message.createdAt,
                 };
-                const sla = messageSender(messageDbRow, socket.data.instance.props.chat.id);
+                const sla = messageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
                 this.log.info(sla)
             } catch (e) {
                 this.log.error(`Send translating message to Mia error ${e}`);
