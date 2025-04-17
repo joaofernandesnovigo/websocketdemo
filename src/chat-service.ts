@@ -171,14 +171,15 @@ export class ChatService {
             }
 
             let translatedMessage = "";
+            const needsTranslation = fromLang !== toLang && fromLang && toLang;
 
-            if (fromLang !== toLang && fromLang && toLang && process.env.AUTO_TRANSLATE) {
+            if (needsTranslation) {
                 translatedMessage = await this.translateMessage(content, toLang, fromLang);
             }
 
             const message: ServerMessageDto = {
                 id: v4(),
-                content: translatedMessage,
+                content: needsTranslation ? translatedMessage: content,
                 from: socket.data.person?.name,
                 createdAt: new Date().toISOString(),
                 status: MessageStatus.Sent,
@@ -203,6 +204,20 @@ export class ChatService {
                     createdAt: "Hoje",
                     status: MessageStatus.Sent,
                 });
+                const answerDbRow: MessageDbRow = {
+                    id: response.data.chatMessageId,
+                    from: socket.data.instance.props.chat.id,
+                    to: `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN} `,
+                    content: response.data.text,
+                    metadata: {
+                        "#uniqueId": response.data.chatMessageId,
+                    },
+                    type: MessageType.Text,
+                    actor: MessageActors.Assistant,
+                    createdAt: new Date().toISOString(),
+                };
+
+                messageSender(answerDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
             }
 
             if (fromLang != toLang && fromLang && toLang) {
@@ -216,12 +231,12 @@ export class ChatService {
                     id: message.id,
                     from: `${socket.data.roomId}${isAttendant ? `%40${CHAT_CHANNEL_DOMAIN}@desk.msging.net` : `@${CHAT_CHANNEL_DOMAIN}`}`,
                     to: socket.data.instance.props.chat.id,
-                    content: message.content.toString(),
+                    content: needsTranslation ? translatedMessage: content,
                     type: message.type,
                     metadata:
                     {
                         "#uniqueId": message.id,
-                        originalMessage: message.content.toString() ?? "",
+                        originalMessage: content,
                         fromLang,
                         toLang,
                         ...isAttendant ? { agent } : {},
