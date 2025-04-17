@@ -229,7 +229,8 @@ export class ChatService {
                     actor: isAttendant ? MessageActors.Assistant : MessageActors.User,
                     createdAt: message.createdAt,
                 };
-                messageSender(messageDbRow);
+                const sla = messageSender(messageDbRow);
+                this.log.info(sla)
             } catch (e) {
                 this.log.error(`Send translating message to Mia error ${e}`);
                 console.error(e);
