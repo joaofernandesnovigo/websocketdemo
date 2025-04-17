@@ -27,10 +27,21 @@ export const getStatusFromDbMessage = ({
  * @param {Object} metadata - Objeto contendo o campo de metadados
  * @returns {MessageMetadata} Os metadados da mensagem ou um objeto vazio
  */
-export const getMessageMetadata = (metadata: Pick<MessageDbRow, "metadata" > ) =>{
+export const getMessageMetadata = (metadata: Pick<MessageDbRow, "metadata">) => {
     if (metadata)
         return metadata.metadata as MessageMetadata;
     return {};
+};
+
+const fixBrokenMetadata = (metadata: any): Record<string, any> => {
+    try {
+        // Reconstruct the string from the char-indexed object
+        const metadataString = Object.values(metadata).join('');
+        return JSON.parse(metadataString);
+    } catch (e) {
+        console.error('Failed to fix metadata:', e);
+        return metadata;
+    }
 };
 
 /**
@@ -64,7 +75,7 @@ export const mapMessageDTO = ({ id, content, actor, createdAt, type, ...other }:
         createdAt,
         status: getStatusFromDbMessage(other),
         direction: actor === MessageActors.User ? "outgoing" : "incoming",
-        metadata: { ...newMetadata },
+        metadata: fixBrokenMetadata(newMetadata),
         type,
     };
 };
