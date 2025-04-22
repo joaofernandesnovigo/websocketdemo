@@ -260,7 +260,7 @@ export class ChatService {
                 });
 
                 socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
-                        id: response.data.chatMessageId,
+                        id: v4(),
                         content: await this.translateMessage("Houve um erro ao processar sua mensagem, por favor tente novamente. Caso o erro persista solicite transferência para o atendente.", fromLang, "PT-BR"),
                         from: socket.data.instance.props.chat.id,
                         createdAt: new Date().toISOString(),
