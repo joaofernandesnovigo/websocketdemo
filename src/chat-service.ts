@@ -253,9 +253,12 @@ export class ChatService {
                     status: MessageStatus.Failed,
                 });
 
+                const fallbackFromLang = fromLang || "EN-US";
+                const translatedErrorMsg = await this.translateMessage("Houve um erro ao processar sua mensagem, por favor tente novamente. Caso o erro persista solicite transferência para o atendente.", fallbackFromLang, "PT-BR");
+
                 socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
                         id: v4(),
-                        content: await this.translateMessage("Houve um erro ao processar sua mensagem, por favor tente novamente. Caso o erro persista solicite transferência para o atendente.", fromLang, "PT-BR"),
+                        content: translatedErrorMsg,
                         from: socket.data.instance.props.chat.id,
                         createdAt: new Date().toISOString(),
                         status: MessageStatus.Sent,
