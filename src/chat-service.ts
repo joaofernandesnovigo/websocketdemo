@@ -224,12 +224,6 @@ export class ChatService {
                     messageSender(answerDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
                 }
     
-                if (fromLang != toLang && fromLang && toLang) {
-                    this.log.info(`Translating message from: ${fromLang} to: ${toLang}`);
-                } else {
-                    this.log.info("Same language");
-                }
-    
                 
                 const messageDbRow: MessageDbRow = {
                     id: message.id,
@@ -271,6 +265,14 @@ export class ChatService {
     }
 
     async translateMessage(content: string, toLang: string, fromLang: string) {
+        const needsTranslation = fromLang !== toLang && fromLang && toLang;
+
+        if (needsTranslation) {
+            this.log.info(`Translating message from: ${fromLang} to: ${toLang}`);
+        } else {
+            this.log.info("Same language");
+        }
+        
         this.log.info(`Translating message from ${fromLang} to ${toLang}`);
         const query = [{
             role: "user",
