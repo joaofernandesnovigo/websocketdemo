@@ -196,37 +196,47 @@ export class ChatService {
             this.log.info(`Processing message ${message.id} from room ${roomId}`);
             this.sendMessageToClient(roomId, message); // Client side sees sent message in its original state
 
+            const fallbackFromLang = fromLang || "EN-US";
 
             if (!isAttendant && !this.openTickets.includes(roomId)) {
                 // this.log.info(`| ${process.env.IA_GATEWAY} | ${process.env.CHATFLOW_ID} |`);
-
-                const response = await sendMessage(socket.data.roomId, content);
-                this.log.info(`Send message ${response.data.text}`);
-                socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
-                    id: response.data.chatMessageId,
-                    content: response.data.text,
-                    from: socket.data.instance.props.chat.id,
-                    createdAt: "Hoje",
-                    status: MessageStatus.Sent,
-                });
-                const answerDbRow: MessageDbRow = {
-                    id: response.data.chatMessageId,
-                    from: socket.data.instance.props.chat.id,
-                    to: `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN} `,
-                    content: response.data.text,
-                    metadata: {
-                        "#uniqueId": response.data.chatMessageId,
-                    },
-                    type: MessageType.Text,
-                    actor: MessageActors.Assistant,
-                    createdAt: new Date().toISOString(),
-                };
-
                 try {
+                    const response = await sendMessage(socket.data.roomId, content);
+
+                    this.log.info(`Send message ${response.data.text}`);
+                    socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
+                        id: response.data.chatMessageId,
+                        content: response.data.text,
+                        from: socket.data.instance.props.chat.id,
+                        createdAt: "Hoje",
+                        status: MessageStatus.Sent,
+                    });
+                    const answerDbRow: MessageDbRow = {
+                        id: response.data.chatMessageId,
+                        from: socket.data.instance.props.chat.id,
+                        to: `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN} `,
+                        content: response.data.text,
+                        metadata: {
+                            "#uniqueId": response.data.chatMessageId,
+                        },
+                        type: MessageType.Text,
+                        actor: MessageActors.Assistant,
+                        createdAt: new Date().toISOString(),
+                    };
                     messageSender(answerDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
                 } catch (e) {
-                    this.log.error(`Agent message error: ${e}`);
-                    console.error(e);
+                    this.log.error(`Saving Agent message to db error: ${e}`);
+                    console.error(`Saving Agent message to db error: ${e}`);
+
+                    const translatedErrorMsg = await this.translateMessage("Houve um erro ao processar sua mensagem, por favor tente novamente. Caso o erro persista solicite transferência para o atendente.", fallbackFromLang, "PT-BR");
+
+                    socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
+                        id: v4(),
+                        content: translatedErrorMsg,
+                        from: socket.data.instance.props.chat.id,
+                        createdAt: new Date().toISOString(),
+                        status: MessageStatus.Sent,
+                    });
                 }
             }
 
@@ -260,7 +270,6 @@ export class ChatService {
                     status: MessageStatus.Failed,
                 });
 
-                const fallbackFromLang = fromLang || "EN-US";
                 const translatedErrorMsg = await this.translateMessage("Houve um erro ao processar sua mensagem, por favor tente novamente. Caso o erro persista solicite transferência para o atendente.", fallbackFromLang, "PT-BR");
 
                 socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
@@ -298,6 +307,7 @@ export class ChatService {
             }
         } else {
             this.log.info("Same language no translation needed");
+            return "";
         }
     }
 
