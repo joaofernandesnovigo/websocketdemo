@@ -90,7 +90,7 @@ export async function messageSender(message: MessageDbRow, botId: number, origin
         name = nameRegex[1];
     }
 
-    
+
     const isAttendant = originalPersonIdentifier.includes("@desk.msging.net");
     let personIdentifier = originalPersonIdentifier;
 
@@ -108,5 +108,5 @@ export async function messageSender(message: MessageDbRow, botId: number, origin
         VALUES (${message.id}, ${conversation.id}, ${message.from}, ${message.to}, ${message.type}, ${message.content}, ${message.actor}, ${JSON.stringify(message.metadata)}, ${message.createdAt})
     `;
 
-    return `Person: Name:${name}/ID:${person.id}/PersonIdentifier: ${personIdentifier}, Conversation: ${conversation.id}, OG Person Identifier: ${originalPersonIdentifier}`;
+    // return `Person: Name:${name}/ID:${person.id}/PersonIdentifier: ${personIdentifier}, Conversation: ${conversation.id}, OG Person Identifier: ${originalPersonIdentifier}`;
 }
