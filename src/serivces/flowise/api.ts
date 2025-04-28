@@ -4,7 +4,8 @@ export interface FlowiseQuestionData {
     question: string;
     overrideConfig: {
         sessionId: string;
-    }
+        vars: Record<string, string>;
+    };
 }
 
 /**
@@ -44,7 +45,7 @@ export const createFlowiseAPI = () => {
  * @returns {Promise<{data: {text: string, chatMessageId: string, question: string, sessionId: string}}>} 
  *          A resposta da API contendo o texto da resposta e informações da sessão
  */
-export const postFlowiseMessage = async (instance: AxiosInstance, data: FlowiseQuestionData) =>{
+export const postFlowiseMessage = async (instance: AxiosInstance, data: FlowiseQuestionData) => {
     return instance.post<{
         text: string;
         chatMessageId: string;

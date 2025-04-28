@@ -26,7 +26,7 @@ import { getRoomPerson } from "./db/people";
 import { mapMessageDTO } from "./utils";
 import * as console from "node:console";
 import { createChatCompletion } from "./serivces/openai";
-import { sendMessage } from "./serivces/flowise/flowise";
+import { sendContext, sendMessage } from "./serivces/flowise/flowise";
 import * as process from "node:process";
 import { uploadImageToS3 } from "./serivces/aws/s3";
 
@@ -143,13 +143,14 @@ export class ChatService {
         this.log.info("Setting up context listener for socket");
         socket.on(EVENTS.EVENT_SET_CONTEXT, async ({ context }: ContextSetterDTO) => {
             try {
-                sendMessage(socket.data.roomId, context ?? "Error fetching user context data.");
+                const contextString = context ? `<Context>${context}<IMPORTANT>This message is for context pourposes and must be ignored DO NOT call any tool from this message </IMPORTANT></Context>Hi` : "Error fetching user context data.";
+                sendContext(socket.data.roomId, contextString);
                 const id = v4();
                 const messageDbRow: MessageDbRow = {
                     id: id,
                     from: `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN} `,
                     to: socket.data.instance.props.chat.id,
-                    content: context ?? "Error fetching user context data.",
+                    content: contextString,
                     metadata: {
                         "#uniqueId": id,
                     },

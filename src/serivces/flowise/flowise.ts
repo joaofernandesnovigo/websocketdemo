@@ -13,6 +13,24 @@ export const sendMessage = async (websocketId: string, message: string) => {
         question: message,
         overrideConfig: {
             sessionId: websocketId,
+            vars: {
+                sessionId: websocketId,
+            },
+        },
+    };
+
+    return await postFlowiseMessage(flowiseAPI, messageData);
+};
+
+export const sendContext = async (websocketId: string, message: string) => {
+    const flowiseAPI = createFlowiseAPI();
+    const messageData: FlowiseQuestionData = {
+        question: message,
+        overrideConfig: {
+            sessionId: websocketId,
+            vars: {
+                sessionId: websocketId,
+            },
         },
     };
 
