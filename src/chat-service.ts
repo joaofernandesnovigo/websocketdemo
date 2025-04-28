@@ -1,3 +1,4 @@
+/* eslint-disable @stylistic/ts/space-before-function-paren */
 import { FastifyBaseLogger, FastifyInstance } from "fastify";
 import { Server, Socket } from "socket.io";
 import { v4 } from "uuid";
@@ -15,10 +16,11 @@ import {
     MiaChatState,
     MiaMessageDto,
     NewClientMessageDto,
+    NewImageDto,
     ServerMessageDto,
     StatusDTO,
 } from "./types";
-import { messageSender, getRoomMessages, MessageDbRow } from "./db/messages";
+import { messageSender, imageSender, getRoomMessages, MessageDbRow } from "./db/messages";
 import { getInstanceByChatId, getInstanceById, InstanceDbRow } from "./db/bots";
 import { getRoomPerson } from "./db/people";
 import { mapMessageDTO } from "./utils";
@@ -26,6 +28,7 @@ import * as console from "node:console";
 import { createChatCompletion } from "./serivces/openai";
 import { sendMessage } from "./serivces/flowise/flowise";
 import * as process from "node:process";
+import { uploadImageToS3 } from "./serivces/aws/s3";
 
 export class ChatService {
     server: FastifyInstance;
@@ -82,7 +85,7 @@ export class ChatService {
 
         this.listenForContext(socket);
 
-        // this.listenForTranslation(socket);
+        this.listenForImages(socket);
     }
 
     async initInstance(socket: Socket) {
@@ -130,7 +133,7 @@ export class ChatService {
             this.log.info(`Sending initial messages: ${messages.length}`);
 
             const mappedMessages = messages.map(mapMessageDTO);
-            this.log.info(mappedMessages)
+            this.log.info(mappedMessages);
 
             socket.emit(EVENTS.EVENT_SERVER_INIT_MESSAGE_LIST, messages.map(mapMessageDTO));
         }
@@ -154,11 +157,62 @@ export class ChatService {
                     actor: MessageActors.System,
                     createdAt: new Date().toISOString(),
                 };
-                messageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`)
+                messageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
 
             } catch (e) {
                 this.log.error(`Send context to Mia error ${e}`);
                 console.error(e);
+            }
+        });
+    }
+
+    listenForImages(socket: Socket) {
+        this.log.info("Setting up image listener for socket");
+        socket.on(EVENTS.EVENT_UPLOAD_IMAGE, async ({ data, fileName }: NewImageDto) => {
+            try {
+                const imageId = v4();
+                const imageUri = await uploadImageToS3(data, fileName);
+
+                const message: ServerMessageDto = {
+                    id: imageId,
+                    content: {
+                        type: "image",
+                        uri: imageUri,
+                        title: fileName,
+                    },
+                    from: socket.data.person?.name,
+                    createdAt: new Date().toISOString(),
+                    status: MessageStatus.Sent,
+                    direction: "outgoing",
+                    type: MessageType.MediaLink,
+                };
+
+                this.sendMessageToClient(socket.data.roomId, message);
+
+                const messageDbRow: MessageDbRow = {
+                    id: imageId,
+                    from: `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`,
+                    to: socket.data.instance.props.chat.id,
+                    content: JSON.stringify({
+                        type: "image",
+                        uri: imageUri,
+                        title: fileName,
+                    }),
+                    type: MessageType.MediaLink,
+                    metadata: {
+                        "#uniqueId": imageId,
+                    },
+                    actor: MessageActors.User,
+                    createdAt: message.createdAt,
+                };
+
+                await imageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
+                this.log.info(`Image message saved: ${imageId}`);
+
+            } catch (e) {
+                this.log.error(`Error processing image upload: ${e}`);
+                console.error(e);
+                // socket.emit(EVENTS.EVENT_ERROR, { message: "Failed to process image upload" });
             }
         });
     }

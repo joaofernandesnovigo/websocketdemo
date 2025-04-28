@@ -1,4 +1,4 @@
-import {MessageMetadata} from "./db/messages";
+import { MessageMetadata } from "./db/messages";
 
 export enum MessageActors {
     User = "user",
@@ -19,9 +19,7 @@ export enum MessageStatus {
     Failed = "failed",
 }
 
-export type BotProps = {
-
-};
+export type BotProps = {};
 
 export type ServerMessageDto = {
     id: string;
@@ -68,6 +66,7 @@ export type ContextSetterDTO = {
 
 export type MessageContentMediaLink = {
     type?: string;
+    title?: string;
     uri?: string;
 };
 export type MessageContentChatState = { state: ChatState };
@@ -92,4 +91,9 @@ export type MiaRequestParams = {
 export type Instance = {
     id: number;
     name: string;
+};
+
+export type NewImageDto = {
+    data: string;
+    fileName: string;
 };

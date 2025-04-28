@@ -1,6 +1,6 @@
 import sql from "./db";
 import { CHAT_CHANNEL_DOMAIN } from "../constants";
-import { Instance, MessageActors, MessageStatus, MessageType } from "../types";
+import { Instance, MessageActors, MessageContentMediaLink, MessageStatus, MessageType } from "../types";
 import { findOrCreatePersonByIdentifier } from "./people";
 import { findOrCreateOpenConversation } from "./conversation";
 
@@ -35,7 +35,6 @@ export type MessageDbRow = {
 
 /**
  * Busca todas as mensagens de uma sala específica para um determinado bot.
- * 
  * @param {string} roomId - O identificador da sala
  * @param {string} botId - O identificador do bot
  * @returns {Promise<MessageDbRow[]>} Lista de mensagens encontradas na sala
@@ -71,7 +70,6 @@ export async function getRoomMessages(roomId: string, botId: string) {
 /**
  * Processa e salva uma mensagem no contexto de uma conversa, criando ou encontrando
  * a pessoa e a conversa associadas.
- * 
  * @param {MessageDbRow} message - A mensagem a ser processada e salva
  * @returns {Promise<string>} Uma string contendo informações sobre o processamento realizado
  */
@@ -109,4 +107,46 @@ export async function messageSender(message: MessageDbRow, botId: number, origin
     `;
 
     // return `Person: Name:${name}/ID:${person.id}/PersonIdentifier: ${personIdentifier}, Conversation: ${conversation.id}, OG Person Identifier: ${originalPersonIdentifier}`;
+}
+
+export async function imageSender(message: MessageDbRow, botId: number, originalPersonIdentifier: string) {
+    const bot = await sql<Instance[]>`
+        SELECT id, name
+        FROM bots
+        WHERE props->'chat'->>'id' = ${botId}
+    `;
+
+    const botData = bot[0];
+
+    const nameRegex = message.content.match(/Person Name:(.*?),/);
+    let name = "";
+    if (nameRegex) {
+        name = nameRegex[1];
+    }
+
+
+    const isAttendant = originalPersonIdentifier.includes("@desk.msging.net");
+    let personIdentifier = originalPersonIdentifier;
+
+    if (isAttendant) {
+        personIdentifier = decodeURIComponent(originalPersonIdentifier.split("@")[0]);
+    }
+
+    const person = await findOrCreatePersonByIdentifier(personIdentifier, name, originalPersonIdentifier);
+
+    const conversation = await findOrCreateOpenConversation(person.id, botData.id);
+
+    const messageContent: MessageContentMediaLink = JSON.parse(message.content);
+
+    // Insert into messages
+    await sql<{ id: number }[]>`
+        INSERT INTO messages (id, conversation_id, "from", "to", type, content, actor, metadata, created_at)
+        VALUES (${message.id}, ${conversation.id}, ${message.from}, ${message.to}, ${message.type}, ${message.content}, ${message.actor}, ${JSON.stringify(message.metadata)}, ${message.createdAt})
+    `;
+
+    await sql<{ id: number }[]>`
+        INSERT INTO files (id, conversation_id, "type", "title", "uri", created_at)
+        VALUES (${message.id}, ${conversation.id}, ${messageContent.type!}, ${messageContent.title!}, ${messageContent.uri!}, ${message.createdAt})
+    `;
+
 }

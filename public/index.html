@@ -1,233 +1,327 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>Mia chat</title>
     <style>
-        body {
-            margin: 0;
-            padding-bottom: 3rem;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
+      body {
+        margin: 0;
+        padding-bottom: 3rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+      }
 
-        #form {
-            background: rgba(0, 0, 0, 0.15);
-            padding: 0.25rem;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            display: flex;
-            height: 3rem;
-            box-sizing: border-box;
-            backdrop-filter: blur(10px);
-        }
+      #form {
+        background: rgba(0, 0, 0, 0.15);
+        padding: 0.25rem;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        height: 3rem;
+        box-sizing: border-box;
+        backdrop-filter: blur(10px);
+      }
 
-        #input {
-            border: none;
-            padding: 0 1rem;
-            flex-grow: 1;
-            border-radius: 2rem;
-            margin: 0.25rem;
-        }
+      #input {
+        border: none;
+        padding: 0 1rem;
+        flex-grow: 1;
+        border-radius: 2rem;
+        margin: 0.25rem;
+      }
 
-        #input:focus {
-            outline: none;
-        }
+      #input:focus {
+        outline: none;
+      }
 
-        #form > button {
-            background: #333;
-            border: none;
-            padding: 0 1rem;
-            margin: 0.25rem;
-            border-radius: 3px;
-            outline: none;
-            color: #fff;
-        }
+      #form > button {
+        background: #333;
+        border: none;
+        padding: 0 1rem;
+        margin: 0.25rem;
+        border-radius: 3px;
+        outline: none;
+        color: #fff;
+      }
 
-        #messages {
-            list-style-type: none;
-            margin: 0;
-            padding: 0;
-        }
+      #messages {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+      }
 
-        #messages > li {
-            padding: 0.5rem 1rem;
-        }
+      #messages > li {
+        padding: 0.5rem 1rem;
+      }
 
-        #messages > li:nth-child(odd) {
-            background: #efefef;
-        }
-        
-        #header-id {
-            display: flex;
-            margin: 0;
-            padding: 0.5rem 1rem;
-            position: sticky;
-            top: 0;
-            background: #ccc;
-        }
+      #messages > li:nth-child(odd) {
+        background: #efefef;
+      }
 
-        #instance-name-id {
-            flex: 0 1 50%;
-        }
+      #header-id {
+        display: flex;
+        margin: 0;
+        padding: 0.5rem 1rem;
+        position: sticky;
+        top: 0;
+        background: #ccc;
+      }
+
+      #instance-name-id {
+        flex: 0 1 50%;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="header-id">
-        <button id="emit-event" onclick="eventSend()">Emit event</button>
-        <button id="emit-offer" onclick="offerSend()">Emit Offer</button>
-        <div id="instance-name-id">&nbsp;</div>
-        <div id="user-name-id"></div>
+      <button id="emit-event" onclick="eventSend()">Emit event</button>
+      <button id="emit-offer" onclick="offerSend()">Emit Offer</button>
+      <button id="emit-offer" onclick="imageSend()">Send Image</button>
+      <div id="instance-name-id">&nbsp;</div>
+      <div id="user-name-id"></div>
     </div>
     <ul id="messages"></ul>
     <form id="form" action="">
-        <input id="input" autocomplete="off"/>
-        <button>Send</button>
+      <input id="input" autocomplete="off" />
+      <button>Send</button>
     </form>
 
-<script src="/socket.io/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 
-<script>
-    const urlParams = new URLSearchParams(window.location.search);
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
 
-    const instance = {
-        token: urlParams.get('token') || "MiaStagingClientChatToken",
-        chatId: urlParams.get('id') || "UniqueChatId",
-    };
+      const instance = {
+        token: urlParams.get("token") || "MiaStagingClientChatToken",
+        chatId: urlParams.get("id") || "UniqueChatId",
+      };
 
-    const roomId = urlParams.get('room') || localStorage.getItem("chat.roomId");
+      const roomId =
+        urlParams.get("room") || localStorage.getItem("chat.roomId");
 
-    const socket = io({
+      const socket = io({
         auth: {
-            instance,
-            roomId,
-        }
-    });
+          instance,
+          roomId,
+        },
+      });
 
-    const eventSend = () => {
-        console.log('Sending event');
+      const eventSend = () => {
+        console.log("Sending event");
         // const objContext = { }
-        const objContext = { context: 'This is a claim: This is the user context for this chat. Request ID: 0a3678f6-bcde-435d-a7f4-0fa2ddbc20f8 ' +
-                'House Details: House Name: Sunset Villa, Type: Single House, Location: 123 Beach Ave, Unit 5, Seaside, Miami, FL, 33101, USA, Coordinates: ' +
-                'Latitude 25.7617, Longitude -80.1918, Managed by: Vacation Rentals Inc., Amenities: Pool, BBQ Grill, Garage with Automatic Doors, WiFi, Air Conditioning, ' +
-                'Heating, Washing Machine, Dryer, Dishwasher, Cable TV, Smart TV, Shower Type: Walk-in, Maximum Guests: 8, Minimum Age: 21, Smoking Allowed: No, ' +
-                'Parties Allowed: No, Pets Allowed: No. Traveler Details: Booking Name: Summer Vacation, Booking Status: Confirmed, Check-In Date: 2024-06-15T15:00:00, ' +
-                'Check-Out Date: 2024-06-22T11:00:00, Person Id:956ac776-1000-483b-b011-64936e4da78a,Person Name:Pyong Lee, Email: alice.johnson@example.com, Phone: +1-555-0123,' +
-                ' Share Number: AB123.' }
+        const objContext = {
+          context:
+            "This is a claim: This is the user context for this chat. Request ID: 0a3678f6-bcde-435d-a7f4-0fa2ddbc20f8 " +
+            "House Details: House Name: Sunset Villa, Type: Single House, Location: 123 Beach Ave, Unit 5, Seaside, Miami, FL, 33101, USA, Coordinates: " +
+            "Latitude 25.7617, Longitude -80.1918, Managed by: Vacation Rentals Inc., Amenities: Pool, BBQ Grill, Garage with Automatic Doors, WiFi, Air Conditioning, " +
+            "Heating, Washing Machine, Dryer, Dishwasher, Cable TV, Smart TV, Shower Type: Walk-in, Maximum Guests: 8, Minimum Age: 21, Smoking Allowed: No, " +
+            "Parties Allowed: No, Pets Allowed: No. Traveler Details: Booking Name: Summer Vacation, Booking Status: Confirmed, Check-In Date: 2024-06-15T15:00:00, " +
+            "Check-Out Date: 2024-06-22T11:00:00, Person Id:956ac776-1000-483b-b011-64936e4da78a,Person Name:Pyong Lee, Email: alice.johnson@example.com, Phone: +1-555-0123," +
+            " Share Number: AB123.",
+        };
         // socket.emit(EVENT_SET_CONTEXT, objContext);
-        socket.emit('EVENT_SET_CONTEXT', objContext);
-        console.log(EVENT_SET_CONTEXT, `Sent event: ${objContext} -> ${JSON.stringify(objContext)}`);
-    }
+        socket.emit("EVENT_SET_CONTEXT", objContext);
+        console.log(
+          EVENT_SET_CONTEXT,
+          `Sent event: ${objContext} -> ${JSON.stringify(objContext)}`
+        );
+      };
 
-    const offerSend = () => {
-        console.log('Sending offer');
+      const offerSend = () => {
+        console.log("Sending offer");
         // const objContext = { }
-        const objContext = { context: 'The following is a offer: The product name All Disney Parks. Enjoy three days of magic at Disney parks for an estimated price of $405.11, with access to Magic Kingdom, Epcot, Hollywood Studios, and Animal Kingdom. Explore iconic attractions, meet beloved characters, and create unforgettable memories.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.\n' +
-                '\n' +
-                'The following is a offer: The product name Magic Kingdom. Experience the magic of Magic Kingdom for an estimated price of $232.45 and step into a world of fairy tales and adventure. Explore iconic attractions, meet beloved Disney characters, and enjoy unforgettable moments in the most enchanting park.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.\n' +
-                '\n' +
-                'The following is a offer: The product name Epcot. Discover the wonders of Epcot for an estimated price of $219.77 and embark on a journey through technology, culture, and innovation. Explore futuristic attractions, experience global cuisine, and enjoy unforgettable moments in this unique Disney park.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.\n' +
-                '\n' +
-                'The following is a offer: The product name Disney Hollywood Studios. Experience the excitement of Disney’s Hollywood Studios for an estimated price of $226.03 and step into the world of movies, TV, and thrilling attractions. Explore Star Wars: Galaxy’s Edge, ride iconic attractions, and immerse yourself in unforgettable adventures.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.\n' +
-                '\n' +
-                'The following is a offer: The product name Choose a Disney park. Enjoy two days of magic at Disney for an estimated price of $383.65, choosing one park per day. Explore Magic Kingdom, Epcot, Hollywood Studios, or Animal Kingdom and experience thrilling attractions, beloved characters, and unforgettable moments.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.' }
+        const objContext = {
+          context:
+            "The following is a offer: The product name All Disney Parks. Enjoy three days of magic at Disney parks for an estimated price of $405.11, with access to Magic Kingdom, Epcot, Hollywood Studios, and Animal Kingdom. Explore iconic attractions, meet beloved characters, and create unforgettable memories.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.\n" +
+            "\n" +
+            "The following is a offer: The product name Magic Kingdom. Experience the magic of Magic Kingdom for an estimated price of $232.45 and step into a world of fairy tales and adventure. Explore iconic attractions, meet beloved Disney characters, and enjoy unforgettable moments in the most enchanting park.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.\n" +
+            "\n" +
+            "The following is a offer: The product name Epcot. Discover the wonders of Epcot for an estimated price of $219.77 and embark on a journey through technology, culture, and innovation. Explore futuristic attractions, experience global cuisine, and enjoy unforgettable moments in this unique Disney park.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.\n" +
+            "\n" +
+            "The following is a offer: The product name Disney Hollywood Studios. Experience the excitement of Disney’s Hollywood Studios for an estimated price of $226.03 and step into the world of movies, TV, and thrilling attractions. Explore Star Wars: Galaxy’s Edge, ride iconic attractions, and immerse yourself in unforgettable adventures.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.\n" +
+            "\n" +
+            "The following is a offer: The product name Choose a Disney park. Enjoy two days of magic at Disney for an estimated price of $383.65, choosing one park per day. Explore Magic Kingdom, Epcot, Hollywood Studios, or Animal Kingdom and experience thrilling attractions, beloved characters, and unforgettable moments.. the severity is 5. The Address is  5458 International Dr, Downtown, Orlando, FL, USA, 32819.",
+        };
         // socket.emit(EVENT_SET_CONTEXT, objContext);
-        socket.emit('EVENT_SET_CONTEXT', objContext);
-        console.log(EVENT_SET_CONTEXT, `Sent event: ${objContext} -> ${JSON.stringify(objContext)}`);
-    }
+        socket.emit("EVENT_SET_CONTEXT", objContext);
+        console.log(
+          EVENT_SET_CONTEXT,
+          `Sent event: ${objContext} -> ${JSON.stringify(objContext)}`
+        );
+      };
 
-    const form = document.getElementById('form');
-    const input = document.getElementById('input');
-    const messagesElement = document.getElementById('messages');
-    let item;
-    const createMessageElement = ({ id, content, from, direction,  createdAt, status, metadata }) => {
-        item = document.createElement('li');
+      const imageSend = () => {
+        console.log("Sending image");
+
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*"; // Allow only image files
+        input.onchange = (event) => {
+          const file = event.target.files[0];
+
+          if (file) {
+            const reader = new FileReader();
+
+            // When the file is read, emit it via socket
+            reader.onload = () => {
+              const imageData = reader.result;
+
+              // Emit the image data along with file name
+              socket.emit("EVENT_UPLOAD_IMAGE", {
+                data: imageData,
+                fileName: file.name,
+              });
+              console.log("Image sent successfully");
+            };
+
+            // Read the selected file as a base64 encoded string
+            reader.readAsDataURL(file);
+          } else {
+            console.log("No file selected");
+          }
+        };
+
+        // Trigger the file input to open the file picker dialog
+        input.click();
+      };
+
+      const form = document.getElementById("form");
+      const input = document.getElementById("input");
+      const messagesElement = document.getElementById("messages");
+      let item;
+
+      const createMessageElement = ({
+        id,
+        content,
+        from,
+        direction,
+        createdAt,
+        status,
+        metadata,
+      }) => {
+        const item = document.createElement("li");
         item.setAttribute("id", `message_${id}`);
-        item.innerHTML = `
-            ${createdAt} - ${direction === "outgoing" ? metadata.originalMessage : content}
-            <br />
 
-        `;
-        if (status) {
-            const statusElement = document.createElement('span');
-            statusElement.setAttribute("id", `message_${id}_status`);
-            statusElement.innerText = `(${status})`;
-            item.appendChild(statusElement);
+        // Check if the content is an image
+        if (content.type === "image" && content.uri) {
+          // Image message
+          const imageUrl = content.uri;
+
+          // Check if imageUri is a valid URL or base64 string
+          if (imageUrl.startsWith("data:image")) {
+            // Base64 image
+            item.innerHTML = `
+        ${createdAt} - <strong>${from}</strong> sent an image:
+        <br />
+        <img src="${imageUrl}" alt="${content.title}" style="max-width: 100%; height: auto;" />
+        <br />
+      `;
+          } else if (imageUrl.startsWith("http")) {
+            // External URL (e.g., S3 URL)
+            item.innerHTML = `
+        ${createdAt} - <strong>${from}</strong> sent an image:
+        <br />
+        <img src="${imageUrl}" alt="${content.title}" style="max-width: 100%; height: auto;" />
+        <br />
+      `;
+          } else {
+            // Invalid image URL handling
+            item.innerHTML = `${createdAt} - Invalid image URL.`;
+          }
+        } else {
+          // Regular text message
+          item.innerHTML = `
+      ${createdAt} - ${
+            direction === "outgoing" ? metadata.originalMessage : content
+          }
+    <br />
+    `;
         }
-        messagesElement.appendChild(item);
-    }
 
-    const EVENT_SERVER_SEND_MESSAGE = "EVENT_SERVER_SEND_MESSAGE";
-    const EVENT_SERVER_INIT_MESSAGE_LIST = "EVENT_SERVER_INIT_MESSAGE_LIST";
-    const EVENT_CLIENT_SEND_MESSAGE = "EVENT_CLIENT_SEND_MESSAGE";
-    const EVENT_CLIENT_SEND_MESSAGE_NEW = "EVENT_CLIENT_SEND_MESSAGE_NEW";
-    const EVENT_SERVER_SEND_USER_DATA = "EVENT_SERVER_SEND_USER_DATA";
-    const EVENT_SERVER_SEND_MESSAGE_STATUS = "EVENT_SERVER_SEND_MESSAGE_STATUS";
-    const EVENT_SERVER_SEND_CHAT_STATE = "EVENT_SERVER_SEND_CHAT_STATE";
-    const EVENT_INIT_ROOM = "EVENT_INIT_ROOM";
-    const EVENT_ERROR = "EVENT_ERROR";
-    const EVENT_SET_CONTEXT = "EVENT_SET_CONTEXT"
-    
-    form.addEventListener('submit', (e) => {
+        // Display status if exists
+        if (status) {
+          const statusElement = document.createElement("span");
+          statusElement.setAttribute("id", `message_${id}_status`);
+          statusElement.innerText = `(${status})`;
+          item.appendChild(statusElement);
+        }
+
+        // Append to message list
+        messagesElement.appendChild(item);
+      };
+
+      const EVENT_SERVER_SEND_MESSAGE = "EVENT_SERVER_SEND_MESSAGE";
+      const EVENT_SERVER_INIT_MESSAGE_LIST = "EVENT_SERVER_INIT_MESSAGE_LIST";
+      const EVENT_CLIENT_SEND_MESSAGE = "EVENT_CLIENT_SEND_MESSAGE";
+      const EVENT_CLIENT_SEND_MESSAGE_NEW = "EVENT_CLIENT_SEND_MESSAGE_NEW";
+      const EVENT_SERVER_SEND_USER_DATA = "EVENT_SERVER_SEND_USER_DATA";
+      const EVENT_SERVER_SEND_MESSAGE_STATUS =
+        "EVENT_SERVER_SEND_MESSAGE_STATUS";
+      const EVENT_SERVER_SEND_CHAT_STATE = "EVENT_SERVER_SEND_CHAT_STATE";
+      const EVENT_INIT_ROOM = "EVENT_INIT_ROOM";
+      const EVENT_ERROR = "EVENT_ERROR";
+      const EVENT_SET_CONTEXT = "EVENT_SET_CONTEXT";
+
+      form.addEventListener("submit", (e) => {
         e.preventDefault();
         if (input.value) {
-            socket.emit(EVENT_CLIENT_SEND_MESSAGE, { content: input.value});
-            // socket.emit(EVENT_CLIENT_SEND_MESSAGE, { content: input.value, toLang: "EN-US", fromLang: "PT-BR"});
-            // socket.emit(EVENT_CLIENT_SEND_MESSAGE, { content: input.value, toLang: "PT-BR", fromLang: "EN-US", agent: {id: "Test", name: "Robson"}});
-            input.value = '';
+          socket.emit(EVENT_CLIENT_SEND_MESSAGE, { content: input.value });
+          // socket.emit(EVENT_CLIENT_SEND_MESSAGE, { content: input.value, toLang: "EN-US", fromLang: "PT-BR"});
+          // socket.emit(EVENT_CLIENT_SEND_MESSAGE, { content: input.value, toLang: "PT-BR", fromLang: "EN-US", agent: {id: "Test", name: "Robson"}});
+          input.value = "";
         }
-    });
-    
-    socket.on(EVENT_INIT_ROOM, ({roomId, instance}) => {
+      });
+
+      socket.on(EVENT_INIT_ROOM, ({ roomId, instance }) => {
         console.log(EVENT_INIT_ROOM, roomId);
-        
-        document.getElementById('instance-name-id').innerText = instance.name;
 
-        if (!urlParams.get('room')) {
-            localStorage.setItem("chat.roomId", roomId);
+        document.getElementById("instance-name-id").innerText = instance.name;
+
+        if (!urlParams.get("room")) {
+          localStorage.setItem("chat.roomId", roomId);
         }
-    });
+      });
 
-    socket.on(EVENT_SERVER_INIT_MESSAGE_LIST, (messages) => {
+      socket.on(EVENT_SERVER_INIT_MESSAGE_LIST, (messages) => {
         messagesElement.innerHTML = "";
-        console.log(messages)
+        console.log(messages);
         messages.forEach(createMessageElement);
         if (item) {
-            window.scrollTo(0, document.body.scrollHeight);
+          window.scrollTo(0, document.body.scrollHeight);
         }
-    });
+      });
 
-    socket.on(EVENT_SERVER_SEND_MESSAGE, (message) => {
+      socket.on(EVENT_SERVER_SEND_MESSAGE, (message) => {
         createMessageElement(message);
         window.scrollTo(0, document.body.scrollHeight);
-    });
-    
-    socket.on(EVENT_SERVER_SEND_USER_DATA, ({ name }) => {
-        document.getElementById('user-name-id').innerText = name;
-    });
-    
-    socket.on(EVENT_SERVER_SEND_MESSAGE_STATUS, ({ messageId, status }) => {
+      });
+
+      socket.on(EVENT_SERVER_SEND_USER_DATA, ({ name }) => {
+        document.getElementById("user-name-id").innerText = name;
+      });
+
+      socket.on(EVENT_SERVER_SEND_MESSAGE_STATUS, ({ messageId, status }) => {
         const statusEl = document.getElementById(`message_${messageId}_status`);
         if (statusEl) statusEl.innerText = `(${status})`;
-    });
+      });
 
-    socket.on(EVENT_SERVER_SEND_CHAT_STATE, ({ from, state }) => {
+      socket.on(EVENT_SERVER_SEND_CHAT_STATE, ({ from, state }) => {
         if (state === "composing") {
-            const stateElement = document.createElement('li');
-            stateElement.innerText = `${from} typing...`;
-            messagesElement.appendChild(stateElement);
-            setTimeout(() => {
-                stateElement.remove();
-            }, 2000);
+          const stateElement = document.createElement("li");
+          stateElement.innerText = `${from} typing...`;
+          messagesElement.appendChild(stateElement);
+          setTimeout(() => {
+            stateElement.remove();
+          }, 2000);
         }
-    });
-        
-    socket.on(EVENT_ERROR, ({message}) => {
+      });
+
+      socket.on(EVENT_ERROR, ({ message }) => {
         alert(message);
         console.error(message);
-    });
-</script>
-
-</body>
+      });
+    </script>
+  </body>
 </html>

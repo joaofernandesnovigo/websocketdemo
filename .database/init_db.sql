@@ -147,3 +147,16 @@ CREATE INDEX idx_messages_conversation_id ON public.messages USING btree (conver
 -- public.messages chaves estrangeiras
 
 ALTER TABLE public.messages ADD CONSTRAINT messages_conversations_id_fk FOREIGN KEY (conversation_id) REFERENCES public.conversations(id);
+
+
+CREATE TABLE public.files (
+	id uuid DEFAULT uuid_generate_v4() NOT NULL,
+	conversation_id uuid NOT NULL,
+	"type" text NULL,
+	"title" text NULL,
+	"uri" text NULL,
+	created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	CONSTRAINT files_pk PRIMARY KEY (id)
+);
+
+ALTER TABLE public.files ADD CONSTRAINT files_conversations_id_fk FOREIGN KEY (conversation_id) REFERENCES public.conversations(id);
