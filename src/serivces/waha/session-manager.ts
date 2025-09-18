@@ -93,10 +93,10 @@ export class WhatsAppSessionManager {
     /**
      * Cria uma sessão a partir de uma mensagem do WAHA.
      * 
-     * @param {WahaMessage} message - Mensagem recebida do WAHA
+     * @param {any} message - Mensagem recebida do WAHA
      * @returns {WhatsAppSession} Sessão da conversa
      */
-    createSessionFromMessage(message: WahaMessage): WhatsAppSession {
+    createSessionFromMessage(message: any): WhatsAppSession {
         const whatsappNumber = message.fromMe ? message.to : message.from;
         return this.getOrCreateSession(whatsappNumber);
     }

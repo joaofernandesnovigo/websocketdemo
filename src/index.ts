@@ -47,6 +47,17 @@ server.get("/whatsapp-sessions", { logLevel: "warn" }, async function handler ()
     };
 });
 
+// Endpoint de teste para webhook
+server.post("/test-webhook", async function handler (request, reply) {
+    try {
+        server.log.info("Test webhook received:", request.body);
+        return { success: true, message: "Test webhook received", data: request.body };
+    } catch (error) {
+        server.log.error("Error in test webhook:", error);
+        return reply.status(500).send({ success: false, message: "Error" });
+    }
+});
+
 const chat = new ChatService({ server });
 
 // Configuração do WAHA
@@ -89,21 +100,33 @@ server.post("/receive-message/:instanceId", { schema: receiveMessageSchema }, as
 });
 
 // Webhook endpoint para receber mensagens do WAHA
-server.post("/waha-webhook", { schema: wahaWebhookSchema }, async function handler (request, reply) {
+server.post("/waha-webhook", async function handler (request, reply) {
     try {
-        const webhookEvent = request.body as WahaWebhookEvent;
-        
-        server.log.info(`Received WAHA webhook event: ${webhookEvent.event}`, {
-            instance: webhookEvent.instance,
-            messageId: webhookEvent.data.id,
-            from: webhookEvent.data.from,
-            to: webhookEvent.data.to,
-            type: webhookEvent.data.type
+        // Log do body completo para debug
+        server.log.info("WAHA webhook received:", {
+            body: request.body,
+            headers: request.headers
         });
 
-        // Processa apenas mensagens recebidas (não enviadas por nós)
-        if (webhookEvent.event === "message.received" && !webhookEvent.data.fromMe) {
-            await processWahaMessage(webhookEvent.data);
+        const webhookData = request.body as any;
+        
+        // Verifica se é um evento de mensagem
+        if (webhookData.event === "message" || webhookData.event === "message.received") {
+            const message = webhookData.data || webhookData;
+            
+            server.log.info(`Processing WAHA message event:`, {
+                event: webhookData.event,
+                messageId: message.id,
+                from: message.from,
+                to: message.to,
+                type: message.type,
+                body: message.body
+            });
+
+            // Processa apenas mensagens recebidas (não enviadas por nós)
+            if (!message.fromMe) {
+                await processWahaMessage(message);
+            }
         }
 
         return { success: true, message: "Webhook processed successfully" };
@@ -117,8 +140,10 @@ server.post("/waha-webhook", { schema: wahaWebhookSchema }, async function handl
 });
 
 // Função para processar mensagens recebidas do WAHA
-async function processWahaMessage(message: WahaWebhookEvent['data']) {
+async function processWahaMessage(message: any) {
     try {
+        server.log.info("Processing WAHA message:", message);
+        
         // Cria ou recupera a sessão para esta conversa
         const session = sessionManager.createSessionFromMessage(message);
         
@@ -157,6 +182,11 @@ async function processWahaMessage(message: WahaWebhookEvent['data']) {
                 mediaUrl: message.mediaUrl,
                 mediaType: message.type,
                 caption: message.caption
+            });
+        } else {
+            server.log.info(`Unsupported message type: ${message.type}`, {
+                sessionId: session.id,
+                message: message
             });
         }
 

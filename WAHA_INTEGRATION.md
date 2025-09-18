@@ -13,9 +13,11 @@ Este documento explica como configurar a integração entre o WAHA, Flowise e Wh
 2. Localize a seção **Webhooks** ou **Integrações**
 3. Adicione um novo webhook com as seguintes configurações:
    - **URL**: `http://seu-servidor.com/waha-webhook`
-   - **Events**: Selecione `message.received`
+   - **Events**: Selecione `message` (não `message.received`)
    - **Method**: POST
    - **Headers**: `Content-Type: application/json`
+
+**Nota**: O WAHA pode usar diferentes formatos de evento. Se `message.received` não estiver disponível, use apenas `message`.
 
 ### 3. Configurar Sessão do WhatsApp
 1. No painel do WAHA, vá para **Sessions** ou **Sessões**
@@ -141,15 +143,49 @@ O servidor gera logs detalhados para:
    - Confirme se o servidor está acessível publicamente
    - Verifique os logs do WAHA
 
-2. **Mensagens não são processadas**
+2. **Erro de validação "body must have required property 'instance'"**
+   - O WAHA pode estar enviando dados em formato diferente
+   - Removemos a validação rígida para aceitar diferentes formatos
+   - Verifique os logs para ver o formato real dos dados
+
+3. **Mensagens não são processadas**
    - Verifique as variáveis de ambiente
    - Confirme se o Flowise está funcionando
    - Verifique os logs do servidor
 
-3. **Respostas não chegam ao WhatsApp**
+4. **Respostas não chegam ao WhatsApp**
    - Verifique se o WAHA está conectado ao WhatsApp
    - Confirme se o Session ID está correto
    - Verifique os logs de envio
+
+### Testando o Webhook
+
+Use o endpoint de teste para verificar se o webhook está funcionando:
+
+```bash
+# Teste básico
+curl -X POST http://localhost:3000/test-webhook \
+  -H "Content-Type: application/json" \
+  -d '{"message": "test"}'
+
+# Teste com dados do WAHA
+curl -X POST http://localhost:3000/waha-webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "message",
+    "instance": "default",
+    "data": {
+      "id": "test-123",
+      "from": "5511999999999@c.us",
+      "to": "5511888888888@c.us",
+      "body": "Teste",
+      "type": "text",
+      "timestamp": 1234567890,
+      "fromMe": false,
+      "hasMedia": false
+    }
+  }'
+```
 
 ### Logs Importantes
 
