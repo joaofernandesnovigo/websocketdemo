@@ -252,7 +252,7 @@ async function processWahaMessage(message: any) {
             
             try {
                 const whatsappResponse = await wahaService.sendTextMessage(
-                    session.whatsappNumber,
+                    message.from, // Usar o número que enviou a mensagem como destinatário
                     response.data.text
                 );
 
