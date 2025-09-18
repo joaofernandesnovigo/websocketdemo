@@ -213,16 +213,33 @@ async function processWahaMessage(message: any) {
 
             // Envia a resposta de volta para o WhatsApp via WAHA
             server.log.info(`Sending response to WhatsApp: ${response.data.text}`);
-            const whatsappResponse = await wahaService.sendTextMessage(
-                session.whatsappNumber,
-                response.data.text
-            );
-
-            server.log.info(`Message sent to WhatsApp:`, {
-                sessionId: session.id,
-                messageId: whatsappResponse.id,
-                to: whatsappResponse.to
+            server.log.info(`WAHA Service Config:`, {
+                baseUrl: WAHA_BASE_URL,
+                sessionId: WAHA_SESSION_ID,
+                targetNumber: session.whatsappNumber
             });
+            
+            try {
+                const whatsappResponse = await wahaService.sendTextMessage(
+                    session.whatsappNumber,
+                    response.data.text
+                );
+
+                server.log.info(`Message sent to WhatsApp successfully:`, {
+                    sessionId: session.id,
+                    messageId: whatsappResponse.id,
+                    to: whatsappResponse.to,
+                    response: whatsappResponse
+                });
+            } catch (error) {
+                server.log.error(`Error sending message to WhatsApp:`, {
+                    error: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined,
+                    sessionId: session.id,
+                    targetNumber: session.whatsappNumber,
+                    message: response.data.text
+                });
+            }
 
         } else if (message.hasMedia) {
             // Para mensagens de mídia, por enquanto apenas logamos

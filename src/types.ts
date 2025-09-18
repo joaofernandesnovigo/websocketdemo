@@ -132,7 +132,6 @@ export type WahaSendMessageRequest = {
         filename?: string;
         caption?: string;
     };
-    type: 'text' | 'image' | 'audio' | 'video' | 'document';
 };
 
 export type WahaSendMessageResponse = {

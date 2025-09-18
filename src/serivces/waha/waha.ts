@@ -23,8 +23,7 @@ export class WahaService {
     async sendTextMessage(to: string, text: string): Promise<WahaSendMessageResponse> {
         const messageData: WahaSendMessageRequest = {
             to,
-            text,
-            type: 'text'
+            text
         };
 
         return await sendWahaMessage(this.api, this.sessionId, messageData);
@@ -36,22 +35,19 @@ export class WahaService {
      * @param {string} to - Número do destinatário (formato: 5511999999999@c.us)
      * @param {string} mediaUrl - URL da mídia
      * @param {string} caption - Legenda da mídia (opcional)
-     * @param {string} type - Tipo da mídia (image, audio, video, document)
      * @returns {Promise<WahaSendMessageResponse>} Resposta do WAHA
      */
     async sendMediaMessage(
         to: string, 
         mediaUrl: string, 
-        caption?: string, 
-        type: 'image' | 'audio' | 'video' | 'document' = 'image'
+        caption?: string
     ): Promise<WahaSendMessageResponse> {
         const messageData: WahaSendMessageRequest = {
             to,
             media: {
                 url: mediaUrl,
                 caption
-            },
-            type
+            }
         };
 
         return await sendWahaMediaMessage(this.api, this.sessionId, messageData);

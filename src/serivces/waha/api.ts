@@ -32,8 +32,12 @@ export const sendWahaMessage = async (
     messageData: WahaSendMessageRequest
 ): Promise<WahaSendMessageResponse> => {
     const response = await instance.post<WahaSendMessageResponse>(
-        `/api/sessions/${sessionId}/messages/send`,
-        messageData
+        `/api/sendText`,
+        {
+            session: sessionId,
+            chatId: messageData.to,
+            text: messageData.text
+        }
     );
     return response.data;
 };
