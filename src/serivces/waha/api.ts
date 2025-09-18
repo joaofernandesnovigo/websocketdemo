@@ -32,7 +32,7 @@ export const sendWahaMessage = async (
     messageData: WahaSendMessageRequest
 ): Promise<WahaSendMessageResponse> => {
     const requestData = {
-        session: sessionId,
+        session: "default", // Forçar sempre "default" para WAHA Core
         chatId: messageData.to,
         text: messageData.text
     };
