@@ -83,6 +83,37 @@ server.post("/debug-waha", async function handler (request, reply) {
     }
 });
 
+// Endpoint para testar envio de mensagem via WAHA
+server.post("/test-send-waha", async function handler (request, reply) {
+    try {
+        const { chatId, text } = request.body as { chatId: string; text: string };
+        
+        if (!chatId || !text) {
+            return reply.status(400).send({ 
+                success: false, 
+                message: "chatId and text are required" 
+            });
+        }
+        
+        server.log.info("Testing WAHA send message:", { chatId, text });
+        
+        const response = await wahaService.sendTextMessage(chatId, text);
+        
+        return { 
+            success: true, 
+            message: "Message sent successfully",
+            response: response
+        };
+    } catch (error) {
+        server.log.error("Error testing WAHA send:", error);
+        return reply.status(500).send({ 
+            success: false, 
+            message: "Error sending message",
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+
 const chat = new ChatService({ server });
 
 // Configuração do WAHA
@@ -231,9 +262,24 @@ async function processWahaMessage(message: any) {
                     to: whatsappResponse.to,
                     response: whatsappResponse
                 });
-            } catch (error) {
+            } catch (error: any) {
+                console.log('=== WAHA ERROR DETAILS ===');
+                console.log('Error object:', error);
+                console.log('Error message:', error.message);
+                console.log('Error code:', error.code);
+                console.log('Error response status:', error.response?.status);
+                console.log('Error response statusText:', error.response?.statusText);
+                console.log('Error response headers:', error.response?.headers);
+                console.log('Error response data:', error.response?.data);
+                console.log('Error config:', error.config);
+                console.log('========================');
+                
                 server.log.error(`Error sending message to WhatsApp:`, {
                     error: error instanceof Error ? error.message : String(error),
+                    code: error.code,
+                    status: error.response?.status,
+                    statusText: error.response?.statusText,
+                    responseData: error.response?.data,
                     stack: error instanceof Error ? error.stack : undefined,
                     sessionId: session.id,
                     targetNumber: session.whatsappNumber,

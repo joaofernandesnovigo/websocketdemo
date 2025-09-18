@@ -11,7 +11,7 @@ export const createWahaAPI = (baseUrl: string): AxiosInstance => {
     const wahaAPI = axios.create({
         baseURL: baseUrl,
         headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
         },
     });
 
@@ -31,15 +31,50 @@ export const sendWahaMessage = async (
     sessionId: string,
     messageData: WahaSendMessageRequest
 ): Promise<WahaSendMessageResponse> => {
-    const response = await instance.post<WahaSendMessageResponse>(
-        `/api/sendText`,
-        {
-            session: sessionId,
-            chatId: messageData.to,
-            text: messageData.text
-        }
-    );
-    return response.data;
+    const requestData = {
+        session: sessionId,
+        chatId: messageData.to,
+        text: messageData.text
+    };
+    
+    console.log('WAHA API Request:', {
+        url: `${instance.defaults.baseURL}/api/sendText`,
+        headers: instance.defaults.headers,
+        data: requestData
+    });
+    
+    try {
+        const response = await instance.post<WahaSendMessageResponse>(
+            `/api/sendText`,
+            requestData
+        );
+        
+        console.log('WAHA API Response Success:', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+            data: response.data
+        });
+        
+        return response.data;
+    } catch (error: any) {
+        console.log('WAHA API Response Error:', {
+            message: error.message,
+            code: error.code,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            headers: error.response?.headers,
+            data: error.response?.data,
+            config: {
+                url: error.config?.url,
+                method: error.config?.method,
+                headers: error.config?.headers,
+                data: error.config?.data
+            }
+        });
+        
+        throw error;
+    }
 };
 
 /**
