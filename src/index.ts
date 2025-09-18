@@ -66,6 +66,14 @@ const WAHA_SESSION_ID = process.env.WAHA_SESSION_ID || "default";
 const wahaService = new WahaService(WAHA_BASE_URL, WAHA_SESSION_ID);
 const sessionManager = new WhatsAppSessionManager();
 
+// Log das configurações
+server.log.info("WAHA Configuration:", {
+    WAHA_BASE_URL,
+    WAHA_SESSION_ID,
+    IA_GATEWAY: process.env.IA_GATEWAY,
+    CHATFLOW_ID: process.env.CHATFLOW_ID
+});
+
 server.ready((err) => {
     if (err) throw err;
 
@@ -103,10 +111,7 @@ server.post("/receive-message/:instanceId", { schema: receiveMessageSchema }, as
 server.post("/waha-webhook", async function handler (request, reply) {
     try {
         // Log do body completo para debug
-        server.log.info("WAHA webhook received:", {
-            body: request.body,
-            headers: request.headers
-        });
+        server.log.info("WAHA webhook received:", JSON.stringify(request.body, null, 2));
 
         const webhookData = request.body as any;
         
@@ -120,13 +125,18 @@ server.post("/waha-webhook", async function handler (request, reply) {
                 from: message.from,
                 to: message.to,
                 type: message.type,
-                body: message.body
+                body: message.body,
+                fromMe: message.fromMe
             });
 
             // Processa apenas mensagens recebidas (não enviadas por nós)
             if (!message.fromMe) {
                 await processWahaMessage(message);
+            } else {
+                server.log.info("Skipping message sent by us");
             }
+        } else {
+            server.log.info(`Unknown event type: ${webhookData.event}`);
         }
 
         return { success: true, message: "Webhook processed successfully" };
@@ -142,7 +152,13 @@ server.post("/waha-webhook", async function handler (request, reply) {
 // Função para processar mensagens recebidas do WAHA
 async function processWahaMessage(message: any) {
     try {
-        server.log.info("Processing WAHA message:", message);
+        server.log.info("Processing WAHA message:", JSON.stringify(message, null, 2));
+        
+        // Valida se a mensagem tem os campos necessários
+        if (!message.from || !message.to) {
+            server.log.error("Message missing required fields (from/to):", message);
+            return;
+        }
         
         // Cria ou recupera a sessão para esta conversa
         const session = sessionManager.createSessionFromMessage(message);
@@ -154,6 +170,8 @@ async function processWahaMessage(message: any) {
 
         // Processa apenas mensagens de texto por enquanto
         if (message.type === "text" && message.body) {
+            server.log.info(`Sending text message to Flowise: ${message.body}`);
+            
             // Envia a mensagem para o Flowise
             const response = await sendMessage(session.id, message.body);
             
@@ -164,6 +182,7 @@ async function processWahaMessage(message: any) {
             });
 
             // Envia a resposta de volta para o WhatsApp via WAHA
+            server.log.info(`Sending response to WhatsApp: ${response.data.text}`);
             const whatsappResponse = await wahaService.sendTextMessage(
                 session.whatsappNumber,
                 response.data.text
@@ -191,6 +210,10 @@ async function processWahaMessage(message: any) {
         }
 
     } catch (error) {
-        server.log.error("Error processing WAHA message:", error);
+        server.log.error("Error processing WAHA message:", {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            message: message
+        });
     }
 }
