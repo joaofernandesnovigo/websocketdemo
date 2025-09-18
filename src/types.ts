@@ -97,3 +97,51 @@ export type NewImageDto = {
     data: string;
     fileName: string;
 };
+
+// WAHA Webhook Types
+export type WahaMessage = {
+    id: string;
+    from: string;
+    to: string;
+    body: string;
+    type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'location' | 'contact' | 'sticker';
+    timestamp: number;
+    fromMe: boolean;
+    hasMedia: boolean;
+    mediaUrl?: string;
+    mediaMimeType?: string;
+    mediaFilename?: string;
+    caption?: string;
+    quotedMessageId?: string;
+    contextInfo?: {
+        quotedMessage?: WahaMessage;
+    };
+};
+
+export type WahaWebhookEvent = {
+    event: 'message.received' | 'message.sent' | 'message.updated' | 'message.deleted';
+    instance: string;
+    data: WahaMessage;
+};
+
+export type WahaSendMessageRequest = {
+    to: string;
+    text?: string;
+    media?: {
+        url: string;
+        filename?: string;
+        caption?: string;
+    };
+    type: 'text' | 'image' | 'audio' | 'video' | 'document';
+};
+
+export type WahaSendMessageResponse = {
+    id: string;
+    from: string;
+    to: string;
+    body: string;
+    type: string;
+    timestamp: number;
+    fromMe: boolean;
+    hasMedia: boolean;
+};
