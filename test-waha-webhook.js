@@ -6,21 +6,24 @@ async function testWebhookFormats() {
     
     console.log('=== Testing WAHA Webhook Formats ===\n');
     
-    // Teste 1: Formato com event e data
-    console.log('Test 1: Format with event and data');
+    // Teste 1: Formato real do WAHA
+    console.log('Test 1: Real WAHA format');
     try {
         const testData1 = {
             event: "message",
-            instance: "default",
-            data: {
-                id: "test-message-123",
+            session: "default",
+            engine: "WEBJS",
+            payload: {
+                id: "true_5511999999999@c.us_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                timestamp: Math.floor(Date.now() / 1000),
                 from: "5511999999999@c.us",
+                fromMe: false,
+                source: "app",
                 to: "5511888888888@c.us",
                 body: "Olá, esta é uma mensagem de teste!",
-                type: "text",
-                timestamp: Date.now(),
-                fromMe: false,
-                hasMedia: false
+                hasMedia: false,
+                ack: 1,
+                vCards: []
             }
         };
 

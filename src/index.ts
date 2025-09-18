@@ -58,6 +58,31 @@ server.post("/test-webhook", async function handler (request, reply) {
     }
 });
 
+// Endpoint de debug para capturar dados do WAHA
+server.post("/debug-waha", async function handler (request, reply) {
+    try {
+        console.log("=== WAHA DEBUG DATA ===");
+        console.log("Headers:", JSON.stringify(request.headers, null, 2));
+        console.log("Body:", JSON.stringify(request.body, null, 2));
+        console.log("=========================");
+        
+        server.log.info("WAHA Debug Data:", {
+            headers: request.headers,
+            body: request.body
+        });
+        
+        return { 
+            success: true, 
+            message: "Debug data captured",
+            receivedAt: new Date().toISOString(),
+            data: request.body
+        };
+    } catch (error) {
+        server.log.error("Error in debug webhook:", error);
+        return reply.status(500).send({ success: false, message: "Error" });
+    }
+});
+
 const chat = new ChatService({ server });
 
 // Configuração do WAHA
@@ -112,21 +137,25 @@ server.post("/waha-webhook", async function handler (request, reply) {
     try {
         // Log do body completo para debug
         server.log.info("WAHA webhook received:", JSON.stringify(request.body, null, 2));
+        console.log("WAHA webhook received:", JSON.stringify(request.body, null, 2));
 
         const webhookData = request.body as any;
         
         // Verifica se é um evento de mensagem
-        if (webhookData.event === "message" || webhookData.event === "message.received") {
-            const message = webhookData.data || webhookData;
+        if (webhookData.event === "message" || webhookData.event === "message.received" || !webhookData.event) {
+            // Extrai a mensagem do payload (formato real do WAHA)
+            const message = webhookData.payload || webhookData.data || webhookData;
             
             server.log.info(`Processing WAHA message event:`, {
                 event: webhookData.event,
+                session: webhookData.session,
+                engine: webhookData.engine,
                 messageId: message.id,
                 from: message.from,
                 to: message.to,
-                type: message.type,
                 body: message.body,
-                fromMe: message.fromMe
+                fromMe: message.fromMe,
+                hasMedia: message.hasMedia
             });
 
             // Processa apenas mensagens recebidas (não enviadas por nós)
@@ -156,7 +185,8 @@ async function processWahaMessage(message: any) {
         
         // Valida se a mensagem tem os campos necessários
         if (!message.from || !message.to) {
-            server.log.error("Message missing required fields (from/to):", message);
+            server.log.error("Message missing required fields (from/to):", JSON.stringify(message, null, 2));
+            console.log("Message missing required fields (from/to):", JSON.stringify(message, null, 2));
             return;
         }
         
@@ -169,7 +199,7 @@ async function processWahaMessage(message: any) {
         });
 
         // Processa apenas mensagens de texto por enquanto
-        if (message.type === "text" && message.body) {
+        if (message.body && !message.hasMedia) {
             server.log.info(`Sending text message to Flowise: ${message.body}`);
             
             // Envia a mensagem para o Flowise
@@ -194,16 +224,15 @@ async function processWahaMessage(message: any) {
                 to: whatsappResponse.to
             });
 
-        } else if (message.hasMedia && message.mediaUrl) {
+        } else if (message.hasMedia) {
             // Para mensagens de mídia, por enquanto apenas logamos
             server.log.info(`Media message received (not processed yet):`, {
                 sessionId: session.id,
-                mediaUrl: message.mediaUrl,
-                mediaType: message.type,
-                caption: message.caption
+                hasMedia: message.hasMedia,
+                body: message.body
             });
         } else {
-            server.log.info(`Unsupported message type: ${message.type}`, {
+            server.log.info(`Unsupported message format:`, {
                 sessionId: session.id,
                 message: message
             });

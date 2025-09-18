@@ -99,17 +99,20 @@ yarn dev
 ### Evento do WAHA
 ```json
 {
-  "event": "message.received",
-  "instance": "session-id",
-  "data": {
-    "id": "message-id",
+  "event": "message",
+  "session": "default",
+  "engine": "WEBJS",
+  "payload": {
+    "id": "true_5511999999999@c.us_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "timestamp": 1667561485,
     "from": "5511999999999@c.us",
+    "fromMe": false,
+    "source": "app",
     "to": "5511888888888@c.us",
     "body": "Texto da mensagem",
-    "type": "text",
-    "timestamp": 1234567890,
-    "fromMe": false,
-    "hasMedia": false
+    "hasMedia": false,
+    "ack": 1,
+    "vCards": []
   }
 }
 ```
