@@ -4,10 +4,10 @@ import Fastify from "fastify";
 import FastifySocketIo from "fastify-socket.io";
 import { ChatService } from "./chat-service";
 import { ServerOptions } from "socket.io";
-import { receiveMessageSchema, wahaWebhookSchema } from "./schema";
-import { MiaMessageDto, MiaRequestParams, WahaWebhookEvent } from "./types";
-import { WahaService } from "./serivces/waha/waha";
-import { WhatsAppSessionManager } from "./serivces/waha/session-manager";
+import { receiveMessageSchema } from "./schema";
+import { MiaMessageDto, MiaRequestParams, ChatwootWebhookEvent } from "./types";
+import { ChatwootService } from "./serivces/chatwoot/chatwoot";
+import { ChatwootSessionManager } from "./serivces/chatwoot/session-manager";
 import { sendMessage } from "./serivces/flowise/flowise";
 
 const server = Fastify({
@@ -30,8 +30,8 @@ server.get("/health-check", { logLevel: "warn" }, async function handler () {});
 server.get("/favicon.ico", { logLevel: "warn" }, async function handler () {});
 server.get("/mia-chat-api", { logLevel: "warn" }, async function handler () {}); // TODO check why lb call that
 
-// Endpoint para monitorar sessões ativas do WhatsApp
-server.get("/whatsapp-sessions", { logLevel: "warn" }, async function handler () {
+// Endpoint para monitorar sessões ativas do Chatwoot
+server.get("/chatwoot-sessions", { logLevel: "warn" }, async function handler () {
     const activeSessions = sessionManager.getActiveSessions();
     const stats = sessionManager.getStats();
     
@@ -39,8 +39,10 @@ server.get("/whatsapp-sessions", { logLevel: "warn" }, async function handler ()
         stats,
         sessions: activeSessions.map(session => ({
             id: session.id,
-            phoneNumber: session.phoneNumber,
-            whatsappNumber: session.whatsappNumber,
+            conversationId: session.conversationId,
+            contactId: session.contactId,
+            sourceId: session.sourceId,
+            inboxId: session.inboxId,
             lastActivity: session.lastActivity,
             isActive: session.isActive
         }))
@@ -58,15 +60,15 @@ server.post("/test-webhook", async function handler (request, reply) {
     }
 });
 
-// Endpoint de debug para capturar dados do WAHA
-server.post("/debug-waha", async function handler (request, reply) {
+// Endpoint de debug para capturar dados do Chatwoot
+server.post("/debug-chatwoot", async function handler (request, reply) {
     try {
-        console.log("=== WAHA DEBUG DATA ===");
+        console.log("=== CHATWOOT DEBUG DATA ===");
         console.log("Headers:", JSON.stringify(request.headers, null, 2));
         console.log("Body:", JSON.stringify(request.body, null, 2));
         console.log("=========================");
         
-        server.log.info("WAHA Debug Data:", {
+        server.log.info("Chatwoot Debug Data:", {
             headers: request.headers,
             body: request.body
         });
@@ -83,21 +85,21 @@ server.post("/debug-waha", async function handler (request, reply) {
     }
 });
 
-// Endpoint para testar envio de mensagem via WAHA
-server.post("/test-send-waha", async function handler (request, reply) {
+// Endpoint para testar envio de mensagem via Chatwoot
+server.post("/test-send-chatwoot", async function handler (request, reply) {
     try {
-        const { chatId, text } = request.body as { chatId: string; text: string };
+        const { conversationId, text } = request.body as { conversationId: number; text: string };
         
-        if (!chatId || !text) {
+        if (!conversationId || !text) {
             return reply.status(400).send({ 
                 success: false, 
-                message: "chatId and text are required" 
+                message: "conversationId and text are required" 
             });
         }
         
-        server.log.info("Testing WAHA send message:", { chatId, text });
+        server.log.info("Testing Chatwoot send message:", { conversationId, text });
         
-        const response = await wahaService.sendTextMessage(chatId, text);
+        const response = await chatwootService.sendTextMessage(conversationId, text);
         
         return { 
             success: true, 
@@ -105,7 +107,7 @@ server.post("/test-send-waha", async function handler (request, reply) {
             response: response
         };
     } catch (error) {
-        server.log.error("Error testing WAHA send:", error);
+        server.log.error("Error testing Chatwoot send:", error);
         return reply.status(500).send({ 
             success: false, 
             message: "Error sending message",
@@ -116,16 +118,17 @@ server.post("/test-send-waha", async function handler (request, reply) {
 
 const chat = new ChatService({ server });
 
-// Configuração do WAHA
-const WAHA_BASE_URL = process.env.WAHA_BASE_URL || "http://54.242.89.184:3000";
-const WAHA_SESSION_ID = process.env.WAHA_SESSION_ID || "default";
-const wahaService = new WahaService(WAHA_BASE_URL, WAHA_SESSION_ID);
-const sessionManager = new WhatsAppSessionManager();
+// Configuração do Chatwoot
+const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL || "http://localhost:3000";
+const CHATWOOT_ACCESS_TOKEN = process.env.CHATWOOT_ACCESS_TOKEN || "";
+const CHATWOOT_ACCOUNT_ID = parseInt(process.env.CHATWOOT_ACCOUNT_ID || "1", 10);
+const chatwootService = new ChatwootService(CHATWOOT_BASE_URL, CHATWOOT_ACCESS_TOKEN, CHATWOOT_ACCOUNT_ID);
+const sessionManager = new ChatwootSessionManager();
 
 // Log das configurações
-server.log.info("WAHA Configuration:", {
-    WAHA_BASE_URL,
-    WAHA_SESSION_ID,
+server.log.info("Chatwoot Configuration:", {
+    CHATWOOT_BASE_URL,
+    CHATWOOT_ACCOUNT_ID,
     IA_GATEWAY: process.env.IA_GATEWAY,
     CHATFLOW_ID: process.env.CHATFLOW_ID
 });
@@ -138,7 +141,7 @@ server.ready((err) => {
     // Limpa sessões inativas a cada 30 minutos
     setInterval(() => {
         sessionManager.cleanupInactiveSessions(30);
-        server.log.info("Cleaned up inactive WhatsApp sessions");
+        server.log.info("Cleaned up inactive Chatwoot sessions");
     }, 30 * 60 * 1000);
 });
 
@@ -163,45 +166,41 @@ server.post("/receive-message/:instanceId", { schema: receiveMessageSchema }, as
     chat.sendSystemMessage(instance, message);
 });
 
-// Webhook endpoint para receber mensagens do WAHA
-server.post("/waha-webhook", async function handler (request, reply) {
+// Webhook endpoint para receber mensagens do Chatwoot
+server.post("/chatwoot-webhook", async function handler (request, reply) {
     try {
         // Log do body completo para debug
-        server.log.info("WAHA webhook received:", JSON.stringify(request.body, null, 2));
-        console.log("WAHA webhook received:", JSON.stringify(request.body, null, 2));
+        server.log.info("Chatwoot webhook received:", JSON.stringify(request.body, null, 2));
+        console.log("Chatwoot webhook received:", JSON.stringify(request.body, null, 2));
 
-        const webhookData = request.body as any;
+        const webhookData = request.body as ChatwootWebhookEvent;
         
-        // Verifica se é um evento de mensagem
-        if (webhookData.event === "message" || webhookData.event === "message.received" || !webhookData.event) {
-            // Extrai a mensagem do payload (formato real do WAHA)
-            const message = webhookData.payload || webhookData.data || webhookData;
+        // Verifica se é um evento de mensagem criada
+        if (webhookData.event === "message_created" && webhookData.message) {
+            const message = webhookData.message;
+            const conversation = webhookData.conversation;
             
-            server.log.info(`Processing WAHA message event:`, {
+            server.log.info(`Processing Chatwoot message event:`, {
                 event: webhookData.event,
-                session: webhookData.session,
-                engine: webhookData.engine,
                 messageId: message.id,
-                from: message.from,
-                to: message.to,
-                body: message.body,
-                fromMe: message.fromMe,
-                hasMedia: message.hasMedia
+                conversationId: conversation?.id,
+                messageType: message.message_type,
+                content: message.content
             });
 
-            // Processa apenas mensagens recebidas (não enviadas por nós)
-            if (!message.fromMe) {
-                await processWahaMessage(message);
+            // Processa apenas mensagens recebidas (incoming)
+            if (message.message_type === "incoming" && conversation) {
+                await processChatwootMessage(message, conversation);
             } else {
-                server.log.info("Skipping message sent by us");
+                server.log.info("Skipping outgoing message or missing conversation");
             }
         } else {
-            server.log.info(`Unknown event type: ${webhookData.event}`);
+            server.log.info(`Unknown or unhandled event type: ${webhookData.event}`);
         }
 
         return { success: true, message: "Webhook processed successfully" };
     } catch (error) {
-        server.log.error("Error processing WAHA webhook:", error);
+        server.log.error("Error processing Chatwoot webhook:", error);
         return reply.status(500).send({ 
             success: false, 
             message: "Internal server error" 
@@ -209,32 +208,43 @@ server.post("/waha-webhook", async function handler (request, reply) {
     }
 });
 
-// Função para processar mensagens recebidas do WAHA
-async function processWahaMessage(message: any) {
+// Função para processar mensagens recebidas do Chatwoot
+async function processChatwootMessage(message: any, conversation: any) {
     try {
-        server.log.info("Processing WAHA message:", JSON.stringify(message, null, 2));
+        server.log.info("Processing Chatwoot message:", JSON.stringify(message, null, 2));
         
-        // Valida se a mensagem tem os campos necessários
-        if (!message.from || !message.to) {
-            server.log.error("Message missing required fields (from/to):", JSON.stringify(message, null, 2));
-            console.log("Message missing required fields (from/to):", JSON.stringify(message, null, 2));
+        // Valida se a mensagem e conversa têm os campos necessários
+        if (!message.content || !conversation.id) {
+            server.log.error("Message missing required fields (content/conversation.id):", JSON.stringify({ message, conversation }, null, 2));
+            console.log("Message missing required fields:", JSON.stringify({ message, conversation }, null, 2));
             return;
         }
         
+        // Extrai informações necessárias
+        const contact = conversation.meta?.sender || conversation.contact;
+        const sourceId = contact?.source_id || conversation.source_id;
+        const inboxId = conversation.inbox_id || message.inbox_id;
+        
         // Cria ou recupera a sessão para esta conversa
-        const session = sessionManager.createSessionFromMessage(message);
+        const session = sessionManager.getOrCreateSession(
+            conversation.id,
+            conversation.contact_id || contact?.id,
+            sourceId,
+            inboxId
+        );
         
         server.log.info(`Processing message for session: ${session.id}`, {
-            phoneNumber: session.phoneNumber,
-            whatsappNumber: session.whatsappNumber
+            conversationId: session.conversationId,
+            sourceId: session.sourceId,
+            contactId: session.contactId
         });
 
         // Processa apenas mensagens de texto por enquanto
-        if (message.body && !message.hasMedia) {
-            server.log.info(`Sending text message to Flowise: ${message.body}`);
+        if (message.content && (!message.attachments || message.attachments.length === 0)) {
+            server.log.info(`Sending text message to Flowise: ${message.content}`);
             
             // Envia a mensagem para o Flowise
-            const response = await sendMessage(session.id, message.body);
+            const response = await sendMessage(session.id, message.content);
             
             server.log.info(`Flowise response received:`, {
                 sessionId: session.id,
@@ -242,28 +252,28 @@ async function processWahaMessage(message: any) {
                 chatMessageId: response.data.chatMessageId
             });
 
-            // Envia a resposta de volta para o WhatsApp via WAHA
-            server.log.info(`Sending response to WhatsApp: ${response.data.text}`);
-            server.log.info(`WAHA Service Config:`, {
-                baseUrl: WAHA_BASE_URL,
-                sessionId: WAHA_SESSION_ID,
-                targetNumber: session.whatsappNumber
+            // Envia a resposta de volta para o Chatwoot
+            server.log.info(`Sending response to Chatwoot: ${response.data.text}`);
+            server.log.info(`Chatwoot Service Config:`, {
+                baseUrl: CHATWOOT_BASE_URL,
+                accountId: CHATWOOT_ACCOUNT_ID,
+                conversationId: session.conversationId
             });
             
             try {
-                const whatsappResponse = await wahaService.sendTextMessage(
-                    message.from, // Usar o número que enviou a mensagem como destinatário
+                const chatwootResponse = await chatwootService.sendTextMessage(
+                    session.conversationId,
                     response.data.text
                 );
 
-                server.log.info(`Message sent to WhatsApp successfully:`, {
+                server.log.info(`Message sent to Chatwoot successfully:`, {
                     sessionId: session.id,
-                    messageId: whatsappResponse.id,
-                    to: whatsappResponse.to,
-                    response: whatsappResponse
+                    messageId: chatwootResponse.id,
+                    conversationId: chatwootResponse.conversation_id,
+                    response: chatwootResponse
                 });
             } catch (error: any) {
-                console.log('=== WAHA ERROR DETAILS ===');
+                console.log('=== CHATWOOT ERROR DETAILS ===');
                 console.log('Error object:', error);
                 console.log('Error message:', error.message);
                 console.log('Error code:', error.code);
@@ -274,7 +284,7 @@ async function processWahaMessage(message: any) {
                 console.log('Error config:', error.config);
                 console.log('========================');
                 
-                server.log.error(`Error sending message to WhatsApp:`, {
+                server.log.error(`Error sending message to Chatwoot:`, {
                     error: error instanceof Error ? error.message : String(error),
                     code: error.code,
                     status: error.response?.status,
@@ -282,17 +292,17 @@ async function processWahaMessage(message: any) {
                     responseData: error.response?.data,
                     stack: error instanceof Error ? error.stack : undefined,
                     sessionId: session.id,
-                    targetNumber: session.whatsappNumber,
+                    conversationId: session.conversationId,
                     message: response.data.text
                 });
             }
 
-        } else if (message.hasMedia) {
-            // Para mensagens de mídia, por enquanto apenas logamos
-            server.log.info(`Media message received (not processed yet):`, {
+        } else if (message.attachments && message.attachments.length > 0) {
+            // Para mensagens com anexos, por enquanto apenas logamos
+            server.log.info(`Message with attachments received (not processed yet):`, {
                 sessionId: session.id,
-                hasMedia: message.hasMedia,
-                body: message.body
+                attachmentsCount: message.attachments.length,
+                content: message.content
             });
         } else {
             server.log.info(`Unsupported message format:`, {
@@ -302,7 +312,7 @@ async function processWahaMessage(message: any) {
         }
 
     } catch (error) {
-        server.log.error("Error processing WAHA message:", {
+        server.log.error("Error processing Chatwoot message:", {
             error: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
             message: message

@@ -144,3 +144,63 @@ export type WahaSendMessageResponse = {
     fromMe: boolean;
     hasMedia: boolean;
 };
+
+// Chatwoot Types
+export type ChatwootMessage = {
+    id: number;
+    content: string;
+    message_type: "incoming" | "outgoing";
+    created_at: number;
+    private: boolean;
+    source_id?: string;
+    inbox_id?: number;
+    conversation_id?: number;
+    sender?: {
+        id: number;
+        name: string;
+        email?: string;
+    };
+    attachments?: Array<{
+        id: number;
+        file_type: string;
+        file_size: number;
+        data_url: string;
+    }>;
+};
+
+export type ChatwootWebhookEvent = {
+    event: "message_created" | "message_updated" | "conversation_created" | "conversation_updated";
+    timestamp: number;
+    conversation?: {
+        id: number;
+        inbox_id: number;
+        contact_id: number;
+        source_id: string;
+        status: string;
+        meta?: {
+            sender?: {
+                id: number;
+                source_id: string;
+            };
+        };
+    };
+    message?: ChatwootMessage;
+    account?: {
+        id: number;
+    };
+};
+
+export type ChatwootSendMessageRequest = {
+    content: string;
+    message_type: "incoming" | "outgoing";
+    private?: boolean;
+};
+
+export type ChatwootSendMessageResponse = {
+    id: number;
+    content: string;
+    message_type: string;
+    created_at: number;
+    conversation_id: number;
+    private: boolean;
+};
