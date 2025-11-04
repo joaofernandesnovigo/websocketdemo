@@ -266,58 +266,78 @@ async function processChatwootMessage(message: any, conversation: any, webhookDa
         if (isTextMessage) {
             server.log.info(`Sending text message to Flowise: ${message.content}`);
             
-            // Envia a mensagem para o Flowise
-            const response = await sendMessage(session.id, message.content);
-            
-            server.log.info(`Flowise response received:`, {
-                sessionId: session.id,
-                responseText: response.data.text,
-                chatMessageId: response.data.chatMessageId
-            });
-
-            // Envia a resposta de volta para o Chatwoot
-            server.log.info(`Sending response to Chatwoot: ${response.data.text}`);
-            server.log.info(`Chatwoot Service Config:`, {
-                baseUrl: CHATWOOT_BASE_URL,
-                accountId: CHATWOOT_ACCOUNT_ID,
-                conversationId: session.conversationId
-            });
-            
             try {
-                const chatwootResponse = await chatwootService.sendTextMessage(
-                    session.conversationId,
-                    response.data.text
-                );
-
-                server.log.info(`Message sent to Chatwoot successfully:`, {
-                    sessionId: session.id,
-                    messageId: chatwootResponse.id,
-                    conversationId: chatwootResponse.conversation_id,
-                    response: chatwootResponse
-                });
-            } catch (error: any) {
-                console.log('=== CHATWOOT ERROR DETAILS ===');
-                console.log('Error object:', error);
-                console.log('Error message:', error.message);
-                console.log('Error code:', error.code);
-                console.log('Error response status:', error.response?.status);
-                console.log('Error response statusText:', error.response?.statusText);
-                console.log('Error response headers:', error.response?.headers);
-                console.log('Error response data:', error.response?.data);
-                console.log('Error config:', error.config);
-                console.log('========================');
+                // Envia a mensagem para o Flowise
+                const response = await sendMessage(session.id, message.content);
                 
-                server.log.error(`Error sending message to Chatwoot:`, {
-                    error: error instanceof Error ? error.message : String(error),
-                    code: error.code,
-                    status: error.response?.status,
-                    statusText: error.response?.statusText,
-                    responseData: error.response?.data,
-                    stack: error instanceof Error ? error.stack : undefined,
+                server.log.info(`Flowise response received:`, {
                     sessionId: session.id,
-                    conversationId: session.conversationId,
-                    message: response.data.text
+                    responseText: response.data.text,
+                    chatMessageId: response.data.chatMessageId
                 });
+
+                // Envia a resposta de volta para o Chatwoot
+                server.log.info(`Sending response to Chatwoot: ${response.data.text}`);
+                server.log.info(`Chatwoot Service Config:`, {
+                    baseUrl: CHATWOOT_BASE_URL,
+                    accountId: CHATWOOT_ACCOUNT_ID,
+                    conversationId: session.conversationId
+                });
+                
+                try {
+                    const chatwootResponse = await chatwootService.sendTextMessage(
+                        session.conversationId,
+                        response.data.text
+                    );
+
+                    server.log.info(`Message sent to Chatwoot successfully:`, {
+                        sessionId: session.id,
+                        messageId: chatwootResponse.id,
+                        conversationId: chatwootResponse.conversation_id,
+                        response: chatwootResponse
+                    });
+                } catch (error: any) {
+                    console.log('=== CHATWOOT ERROR DETAILS ===');
+                    console.log('Error object:', error);
+                    console.log('Error message:', error.message);
+                    console.log('Error code:', error.code);
+                    console.log('Error response status:', error.response?.status);
+                    console.log('Error response statusText:', error.response?.statusText);
+                    console.log('Error response headers:', error.response?.headers);
+                    console.log('Error response data:', error.response?.data);
+                    console.log('Error config:', error.config);
+                    console.log('========================');
+                    
+                    server.log.error(`Error sending message to Chatwoot:`, {
+                        error: error instanceof Error ? error.message : String(error),
+                        code: error.code,
+                        status: error.response?.status,
+                        statusText: error.response?.statusText,
+                        responseData: error.response?.data,
+                        stack: error instanceof Error ? error.stack : undefined,
+                        sessionId: session.id,
+                        conversationId: session.conversationId,
+                        message: response.data.text
+                    });
+                }
+            } catch (flowiseError: any) {
+                server.log.error(`Error sending message to Flowise:`, {
+                    error: flowiseError instanceof Error ? flowiseError.message : String(flowiseError),
+                    code: flowiseError.code,
+                    status: flowiseError.response?.status,
+                    statusText: flowiseError.response?.statusText,
+                    responseData: flowiseError.response?.data,
+                    stack: flowiseError instanceof Error ? flowiseError.stack : undefined,
+                    sessionId: session.id,
+                    message: message.content
+                });
+                console.error("=== FLOWISE ERROR DETAILS ===");
+                console.error("Error:", flowiseError);
+                console.error("Error message:", flowiseError instanceof Error ? flowiseError.message : String(flowiseError));
+                console.error("Error stack:", flowiseError instanceof Error ? flowiseError.stack : undefined);
+                console.error("Error response:", flowiseError.response?.data);
+                console.error("===========================");
+                throw flowiseError; // Re-throw para ser capturado pelo catch externo
             }
 
         } else if (webhookData.content_type !== "text" || webhookData.content_attributes?.attachments) {
@@ -338,7 +358,15 @@ async function processChatwootMessage(message: any, conversation: any, webhookDa
         server.log.error("Error processing Chatwoot message:", {
             error: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
-            message: message
+            message: message,
+            conversation: conversation
         });
+        console.error("=== CHATWOOT PROCESSING ERROR ===");
+        console.error("Error:", error);
+        console.error("Error message:", error instanceof Error ? error.message : String(error));
+        console.error("Error stack:", error instanceof Error ? error.stack : undefined);
+        console.error("Message data:", JSON.stringify(message, null, 2));
+        console.error("Conversation data:", JSON.stringify(conversation, null, 2));
+        console.error("==================================");
     }
 }
