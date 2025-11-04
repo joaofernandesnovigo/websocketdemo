@@ -173,11 +173,20 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
         server.log.info("Chatwoot webhook received:", JSON.stringify(request.body, null, 2));
         console.log("Chatwoot webhook received:", JSON.stringify(request.body, null, 2));
 
-        const webhookData = request.body as ChatwootWebhookEvent;
+        const webhookData = request.body as any;
         
         // Verifica se é um evento de mensagem criada
-        if (webhookData.event === "message_created" && webhookData.message) {
-            const message = webhookData.message;
+        if (webhookData.event === "message_created") {
+            // No formato real do Chatwoot, os dados da mensagem estão no nível raiz
+            const message = {
+                id: webhookData.id,
+                content: webhookData.content,
+                message_type: webhookData.message_type,
+                conversation_id: webhookData.conversation?.id,
+                inbox_id: webhookData.inbox?.id,
+                source_id: webhookData.source_id,
+                sender: webhookData.sender
+            };
             const conversation = webhookData.conversation;
             
             server.log.info(`Processing Chatwoot message event:`, {
@@ -190,7 +199,7 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
 
             // Processa apenas mensagens recebidas (incoming)
             if (message.message_type === "incoming" && conversation) {
-                await processChatwootMessage(message, conversation);
+                await processChatwootMessage(message, conversation, webhookData);
             } else {
                 server.log.info("Skipping outgoing message or missing conversation");
             }
@@ -209,7 +218,7 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
 });
 
 // Função para processar mensagens recebidas do Chatwoot
-async function processChatwootMessage(message: any, conversation: any) {
+async function processChatwootMessage(message: any, conversation: any, webhookData: any) {
     try {
         server.log.info("Processing Chatwoot message:", JSON.stringify(message, null, 2));
         
@@ -221,15 +230,22 @@ async function processChatwootMessage(message: any, conversation: any) {
         }
         
         // Extrai informações necessárias
+        // O source_id está em conversation.contact_inbox.source_id ou pode ser extraído do sender
         const contact = conversation.meta?.sender || conversation.contact;
-        const sourceId = contact?.source_id || conversation.source_id;
+        const sourceId = conversation.contact_inbox?.source_id || 
+                        contact?.source_id || 
+                        conversation.source_id ||
+                        message.sender?.phone_number?.replace(/\D/g, '');
         const inboxId = conversation.inbox_id || message.inbox_id;
+        const contactId = conversation.contact_inbox?.contact_id || 
+                         conversation.meta?.sender?.id || 
+                         contact?.id;
         
         // Cria ou recupera a sessão para esta conversa
         const session = sessionManager.getOrCreateSession(
             conversation.id,
-            conversation.contact_id || contact?.id,
-            sourceId,
+            contactId || 0,
+            sourceId || "unknown",
             inboxId
         );
         
@@ -240,7 +256,14 @@ async function processChatwootMessage(message: any, conversation: any) {
         });
 
         // Processa apenas mensagens de texto por enquanto
-        if (message.content && (!message.attachments || message.attachments.length === 0)) {
+        // Verifica se é mensagem de texto (content_type === "text" ou não tem attachments)
+        const isTextMessage = message.content && 
+                             (webhookData.content_type === "text" || 
+                              !webhookData.content_attributes?.attachments || 
+                              (Array.isArray(webhookData.content_attributes?.attachments) && 
+                               webhookData.content_attributes.attachments.length === 0));
+        
+        if (isTextMessage) {
             server.log.info(`Sending text message to Flowise: ${message.content}`);
             
             // Envia a mensagem para o Flowise
@@ -297,11 +320,11 @@ async function processChatwootMessage(message: any, conversation: any) {
                 });
             }
 
-        } else if (message.attachments && message.attachments.length > 0) {
-            // Para mensagens com anexos, por enquanto apenas logamos
-            server.log.info(`Message with attachments received (not processed yet):`, {
+        } else if (webhookData.content_type !== "text" || webhookData.content_attributes?.attachments) {
+            // Para mensagens com anexos ou mídia, por enquanto apenas logamos
+            server.log.info(`Message with attachments/media received (not processed yet):`, {
                 sessionId: session.id,
-                attachmentsCount: message.attachments.length,
+                contentType: webhookData.content_type,
                 content: message.content
             });
         } else {
