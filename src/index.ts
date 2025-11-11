@@ -199,6 +199,25 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
 
             // Processa apenas mensagens recebidas (incoming)
             if (message.message_type === "incoming" && conversation) {
+                // VERIFICAÇÃO DO TIME - DEVE SER FEITA ANTES DE PROCESSAR
+                const teamName = conversation?.meta?.team?.name || webhookData?.conversation?.meta?.team?.name;
+                const isIATeam = teamName === "ia";
+                
+                console.log("=== WEBHOOK HANDLER - TEAM CHECK ===");
+                console.log("Team Name:", teamName || "none");
+                console.log("Is IA Team:", isIATeam);
+                console.log("Conversation Meta:", JSON.stringify(conversation?.meta, null, 2));
+                console.log("====================================");
+                
+                server.log.info(`[WEBHOOK] Team check - Team: ${teamName || "none"} - Is IA: ${isIATeam}`);
+                
+                if (!isIATeam) {
+                    console.log(`❌ BLOCKING - Team is not "ia" (current: ${teamName || "none"})`);
+                    server.log.info(`Blocking message processing - team is not "ia" (current team: ${teamName || "none"})`);
+                    return { success: true, message: "Message blocked - team is not 'ia'" };
+                }
+                
+                console.log(`✅ ALLOWING - Team is "ia"`);
                 await processChatwootMessage(message, conversation, webhookData);
             } else {
                 server.log.info("Skipping outgoing message or missing conversation");
