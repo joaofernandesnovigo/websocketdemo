@@ -220,6 +220,32 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
 // Função para processar mensagens recebidas do Chatwoot
 async function processChatwootMessage(message: any, conversation: any, webhookData: any) {
     try {
+        // PRIMEIRA COISA: Verifica se o time atribuído é "ia" - ANTES DE QUALQUER PROCESSAMENTO
+        // Verifica tanto em conversation.meta quanto em webhookData.conversation.meta
+        const teamName = conversation?.meta?.team?.name || webhookData?.conversation?.meta?.team?.name;
+        const isIATeam = teamName === "ia";
+        
+        // Logs explícitos para debug - PRIMEIRO LOG DA FUNÇÃO
+        console.log("=== TEAM CHECK (FIRST CHECK) ===");
+        console.log("Conversation ID:", conversation?.id);
+        console.log("Team Name:", teamName || "none");
+        console.log("Is IA Team:", isIATeam);
+        console.log("Conversation Meta:", JSON.stringify(conversation?.meta, null, 2));
+        console.log("Webhook Conversation Meta:", JSON.stringify(webhookData?.conversation?.meta, null, 2));
+        console.log("Full WebhookData:", JSON.stringify(webhookData, null, 2));
+        console.log("==================");
+        
+        server.log.info(`[TEAM CHECK] Conversation ${conversation?.id} - Team: ${teamName || "none"} - Is IA: ${isIATeam}`);
+        
+        // SE NÃO FOR TIME "ia", PARA AQUI E NÃO PROCESSAR
+        if (!isIATeam) {
+            console.log(`❌ SKIPPING - Team is not "ia" (current: ${teamName || "none"})`);
+            server.log.info(`Skipping Flowise processing - team is not "ia" (current team: ${teamName || "none"})`);
+            return;
+        }
+        
+        console.log(`✅ PROCEEDING - Team is "ia"`);
+        
         server.log.info("Processing Chatwoot message:", JSON.stringify(message, null, 2));
         
         // Valida se a mensagem e conversa têm os campos necessários
@@ -228,35 +254,6 @@ async function processChatwootMessage(message: any, conversation: any, webhookDa
             console.log("Message missing required fields:", JSON.stringify({ message, conversation }, null, 2));
             return;
         }
-        
-        // Verifica se o time atribuído é "ia" - DEVE SER FEITO ANTES DE QUALQUER PROCESSAMENTO
-        // Verifica tanto em conversation.meta quanto em webhookData.conversation.meta
-        const teamName = conversation.meta?.team?.name || webhookData.conversation?.meta?.team?.name;
-        const isIATeam = teamName === "ia";
-        
-        // Logs explícitos para debug
-        console.log("=== TEAM CHECK ===");
-        console.log("Conversation ID:", conversation.id);
-        console.log("Team Name:", teamName || "none");
-        console.log("Is IA Team:", isIATeam);
-        console.log("Conversation Meta:", JSON.stringify(conversation.meta, null, 2));
-        console.log("Webhook Conversation Meta:", JSON.stringify(webhookData.conversation?.meta, null, 2));
-        console.log("==================");
-        
-        server.log.info(`Team check for conversation ${conversation.id}:`, {
-            teamName: teamName || "none",
-            isIATeam: isIATeam,
-            conversationMeta: conversation.meta,
-            webhookConversationMeta: webhookData.conversation?.meta
-        });
-        
-        if (!isIATeam) {
-            console.log(`❌ SKIPPING - Team is not "ia" (current: ${teamName || "none"})`);
-            server.log.info(`Skipping Flowise processing - team is not "ia" (current team: ${teamName || "none"})`);
-            return;
-        }
-        
-        console.log(`✅ PROCEEDING - Team is "ia"`);
         
         // Extrai informações necessárias
         // O source_id está em conversation.contact_inbox.source_id ou pode ser extraído do sender
