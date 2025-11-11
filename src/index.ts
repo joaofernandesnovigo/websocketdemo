@@ -263,7 +263,16 @@ async function processChatwootMessage(message: any, conversation: any, webhookDa
                               (Array.isArray(webhookData.content_attributes?.attachments) && 
                                webhookData.content_attributes.attachments.length === 0));
         
+        // Verifica se o time atribuído é "ia"
+        const teamName = conversation.meta?.team?.name;
+        const isIATeam = teamName === "ia";
+        
         if (isTextMessage) {
+            if (!isIATeam) {
+                server.log.info(`Skipping Flowise processing - team is not "ia" (current team: ${teamName || "none"})`);
+                return;
+            }
+            
             server.log.info(`Sending text message to Flowise: ${message.content}`);
             
             try {
