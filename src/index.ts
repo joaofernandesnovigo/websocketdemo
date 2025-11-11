@@ -234,6 +234,15 @@ async function processChatwootMessage(message: any, conversation: any, webhookDa
         const teamName = conversation.meta?.team?.name || webhookData.conversation?.meta?.team?.name;
         const isIATeam = teamName === "ia";
         
+        // Logs explícitos para debug
+        console.log("=== TEAM CHECK ===");
+        console.log("Conversation ID:", conversation.id);
+        console.log("Team Name:", teamName || "none");
+        console.log("Is IA Team:", isIATeam);
+        console.log("Conversation Meta:", JSON.stringify(conversation.meta, null, 2));
+        console.log("Webhook Conversation Meta:", JSON.stringify(webhookData.conversation?.meta, null, 2));
+        console.log("==================");
+        
         server.log.info(`Team check for conversation ${conversation.id}:`, {
             teamName: teamName || "none",
             isIATeam: isIATeam,
@@ -242,9 +251,12 @@ async function processChatwootMessage(message: any, conversation: any, webhookDa
         });
         
         if (!isIATeam) {
+            console.log(`❌ SKIPPING - Team is not "ia" (current: ${teamName || "none"})`);
             server.log.info(`Skipping Flowise processing - team is not "ia" (current team: ${teamName || "none"})`);
             return;
         }
+        
+        console.log(`✅ PROCEEDING - Team is "ia"`);
         
         // Extrai informações necessárias
         // O source_id está em conversation.contact_inbox.source_id ou pode ser extraído do sender
