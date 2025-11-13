@@ -6,6 +6,8 @@ import { S3RequestPresigner } from "@aws-sdk/s3-request-presigner";
 import { parseUrl } from "@aws-sdk/url-parser";
 import { Hash } from "@aws-sdk/hash-node";
 import { formatUrl } from "@aws-sdk/util-format-url";
+import FormData from "form-data";
+import axios from 'axios';
 
 const s3 = new S3Client({
     region: process.env.AWS_REGION,
@@ -14,6 +16,21 @@ const s3 = new S3Client({
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     },
 });
+
+export async function downloadCatalogFromS3(): Promise<FormData> {
+    const response = await axios.get('https://aline-furo-humanizado.s3.us-east-1.amazonaws.com/documentos/Aline+Furo+Humanizado+.pdf', { responseType: 'arraybuffer' });
+    const fileBuffer = Buffer.from(response.data);
+    const fileName = "catalogo.pdf";
+
+    const formData = new FormData();
+
+    formData.append('attachments[]', fileBuffer, { filename: fileName });
+    formData.append('content', 'Aqui está seu PDF.');
+    formData.append('message_type', 'outgoing');
+    formData.append('private', 'false');
+
+    return formData;
+}
 
 export async function uploadImageToS3(base64Data: string, fileName: string): Promise<string> {
     const bucketName = process.env.AWS_BUCKET_NAME!;
