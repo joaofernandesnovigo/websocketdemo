@@ -1,4 +1,4 @@
-import { createChatwootAPI, sendChatwootMessage } from "./api";
+import { createChatwootAPI, sendCatalog, sendChatwootMessage } from "./api";
 import { ChatwootSendMessageRequest, ChatwootSendMessageResponse } from "../../types";
 
 /**
@@ -27,5 +27,9 @@ export class ChatwootService {
         };
 
         return await sendChatwootMessage(this.api, this.accountId, conversationId, messageData);
+    }
+
+    async sendCatalogToChatwoot(accountId: number, conversationId: number): Promise<ChatwootSendMessageResponse> {
+        return await sendCatalog(this.api, accountId, conversationId);
     }
 }

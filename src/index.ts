@@ -9,6 +9,7 @@ import { MiaMessageDto, MiaRequestParams, ChatwootWebhookEvent } from "./types";
 import { ChatwootService } from "./serivces/chatwoot/chatwoot";
 import { ChatwootSessionManager } from "./serivces/chatwoot/session-manager";
 import { sendMessage } from "./serivces/flowise/flowise";
+import { sendCatalog } from "./serivces/chatwoot/api";
 
 const server = Fastify({
     logger: !!process.env.SERVER_DEBUG && process.env.SERVER_DEBUG !== "false",
@@ -168,6 +169,13 @@ server.post("/receive-message/:instanceId", { schema: receiveMessageSchema }, as
     const message = request.body as MiaMessageDto;
     chat.sendSystemMessage(instance, message);
 });
+
+server.post("/sendcatalog", async function handler (request) {
+    const data = request.body as any;
+    const accountId = data.account_id as number;
+    const conversationId = data.conversation_id as number;
+    const response = chatwootService.sendCatalogToChatwoot(accountId, conversationId);
+})
 
 // Webhook endpoint para receber mensagens do Chatwoot
 server.post("/chatwoot-webhook", async function handler (request, reply) {
