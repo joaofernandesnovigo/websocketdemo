@@ -17,8 +17,8 @@ export const sendMessage = async (websocketId: string, message: string, conversa
     // 1. Criamos um objeto com a mensagem e o contexto
     const questionObject = {
         userInput: message,
-        accountId: account_id,
-        conversationId: conversation_id
+        accountId: "1",
+        conversationId: String(conversation_id)
     };
 
     const messageData: FlowiseQuestionData = {
