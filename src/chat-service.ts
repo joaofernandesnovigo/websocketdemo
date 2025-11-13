@@ -256,7 +256,7 @@ export class ChatService {
             if (!isAttendant && !this.openTickets.includes(roomId)) {
                 // this.log.info(`| ${process.env.IA_GATEWAY} | ${process.env.CHATFLOW_ID} |`);
                 try {
-                    const response = await sendMessage(socket.data.roomId, content);
+                    const response = await sendMessage(socket.data.roomId, content, 1, 1);
 
                     this.log.info(`Send message ${response.data.text}`);
                     socket.emit(EVENTS.EVENT_SERVER_SEND_MESSAGE, {
