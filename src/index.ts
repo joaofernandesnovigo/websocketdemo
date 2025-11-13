@@ -175,19 +175,35 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
 
         const webhookData = request.body as any;
         
-        // Verifica se é um evento de mensagem criada
-        if (webhookData.event === "message_created") {
+        // Verifica se é um evento de mensagem criada ou conversa criada (primeira mensagem)
+        if (webhookData.event === "message_created" || webhookData.event === "conversation_created") {
             // No formato real do Chatwoot, os dados da mensagem estão no nível raiz
-            const message = {
-                id: webhookData.id,
-                content: webhookData.content,
-                message_type: webhookData.message_type,
-                conversation_id: webhookData.conversation?.id,
-                inbox_id: webhookData.inbox?.id,
-                source_id: webhookData.source_id,
-                sender: webhookData.sender
-            };
-            const conversation = webhookData.conversation;
+            // Para conversation_created, a mensagem pode estar em conversation.messages[0]
+            let message;
+            if (webhookData.event === "conversation_created") {
+                // Tenta pegar a primeira mensagem do array messages
+                const firstMessage = webhookData.messages?.[0] || webhookData.conversation?.messages?.[0];
+                message = firstMessage || {
+                    id: webhookData.id,
+                    content: webhookData.content,
+                    message_type: webhookData.message_type || 0,
+                    conversation_id: webhookData.conversation?.id || webhookData.id,
+                    inbox_id: webhookData.inbox_id || webhookData.inbox?.id,
+                    source_id: webhookData.source_id,
+                    sender: webhookData.sender
+                };
+            } else {
+                message = {
+                    id: webhookData.id,
+                    content: webhookData.content,
+                    message_type: webhookData.message_type,
+                    conversation_id: webhookData.conversation?.id,
+                    inbox_id: webhookData.inbox?.id,
+                    source_id: webhookData.source_id,
+                    sender: webhookData.sender
+                };
+            }
+            const conversation = webhookData.conversation || webhookData;
             
             server.log.info(`Processing Chatwoot message event:`, {
                 event: webhookData.event,
@@ -198,26 +214,38 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
             });
 
             // Processa apenas mensagens recebidas (incoming)
-            if (message.message_type === "incoming" && conversation) {
+            // No Chatwoot: message_type 0 = incoming, 1 = outgoing
+            // Ou pode ser string: "incoming" / "outgoing"
+            const isIncoming = message && (
+                message.message_type === "incoming" || 
+                message.message_type === 0 ||
+                (typeof message.message_type === "number" && message.message_type === 0)
+            );
+            
+            // Para conversation_created, também processa se houver conteúdo (primeira mensagem)
+            const shouldProcess = (isIncoming || webhookData.event === "conversation_created") 
+                && conversation 
+                && message 
+                && message.content;
+            
+            if (shouldProcess) {
                 // VERIFICAÇÃO DO TIME - DEVE SER FEITA ANTES DE PROCESSAR
+                // Se o time não estiver definido (primeira mensagem), permite processar
+                // Se o time estiver definido e não for "ia", bloqueia
                 const teamName = conversation?.meta?.team?.name || webhookData?.conversation?.meta?.team?.name;
+                const hasTeam = teamName !== undefined && teamName !== null;
                 const isIATeam = teamName === "ia";
                 
-                console.log("=== WEBHOOK HANDLER - TEAM CHECK ===");
-                console.log("Team Name:", teamName || "none");
-                console.log("Is IA Team:", isIATeam);
-                console.log("Conversation Meta:", JSON.stringify(conversation?.meta, null, 2));
-                console.log("====================================");
+                server.log.info(`[WEBHOOK] Team check - Team: ${teamName || "none"} - Has Team: ${hasTeam} - Is IA: ${isIATeam}`);
                 
-                server.log.info(`[WEBHOOK] Team check - Team: ${teamName || "none"} - Is IA: ${isIATeam}`);
-                
-                if (!isIATeam) {
-                    console.log(`❌ BLOCKING - Team is not "ia" (current: ${teamName || "none"})`);
-                    server.log.info(`Blocking message processing - team is not "ia" (current team: ${teamName || "none"})`);
+                // Se o time estiver definido E não for "ia", bloqueia
+                // Se o time não estiver definido (primeira mensagem), permite processar
+                if (hasTeam && !isIATeam) {
+                    server.log.info(`Blocking message processing - team is not "ia" (current team: ${teamName})`);
                     return { success: true, message: "Message blocked - team is not 'ia'" };
                 }
                 
-                console.log(`✅ ALLOWING - Team is "ia"`);
+                // Permite processar se: time não está definido (primeira msg) OU time é "ia"
                 await processChatwootMessage(message, conversation, webhookData);
             } else {
                 server.log.info("Skipping outgoing message or missing conversation");
@@ -239,31 +267,21 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
 // Função para processar mensagens recebidas do Chatwoot
 async function processChatwootMessage(message: any, conversation: any, webhookData: any) {
     try {
-        // PRIMEIRA COISA: Verifica se o time atribuído é "ia" - ANTES DE QUALQUER PROCESSAMENTO
-        // Verifica tanto em conversation.meta quanto em webhookData.conversation.meta
+        // Verifica se o time atribuído é "ia" - ANTES DE QUALQUER PROCESSAMENTO
+        // Se o time não estiver definido (primeira mensagem), permite processar
+        // Se o time estiver definido e não for "ia", bloqueia
         const teamName = conversation?.meta?.team?.name || webhookData?.conversation?.meta?.team?.name;
+        const hasTeam = teamName !== undefined && teamName !== null;
         const isIATeam = teamName === "ia";
         
-        // Logs explícitos para debug - PRIMEIRO LOG DA FUNÇÃO
-        console.log("=== TEAM CHECK (FIRST CHECK) ===");
-        console.log("Conversation ID:", conversation?.id);
-        console.log("Team Name:", teamName || "none");
-        console.log("Is IA Team:", isIATeam);
-        console.log("Conversation Meta:", JSON.stringify(conversation?.meta, null, 2));
-        console.log("Webhook Conversation Meta:", JSON.stringify(webhookData?.conversation?.meta, null, 2));
-        console.log("Full WebhookData:", JSON.stringify(webhookData, null, 2));
-        console.log("==================");
+        server.log.info(`[TEAM CHECK] Conversation ${conversation?.id} - Team: ${teamName || "none"} - Has Team: ${hasTeam} - Is IA: ${isIATeam}`);
         
-        server.log.info(`[TEAM CHECK] Conversation ${conversation?.id} - Team: ${teamName || "none"} - Is IA: ${isIATeam}`);
-        
-        // SE NÃO FOR TIME "ia", PARA AQUI E NÃO PROCESSAR
-        if (!isIATeam) {
-            console.log(`❌ SKIPPING - Team is not "ia" (current: ${teamName || "none"})`);
-            server.log.info(`Skipping Flowise processing - team is not "ia" (current team: ${teamName || "none"})`);
+        // Se o time estiver definido E não for "ia", bloqueia
+        // Se o time não estiver definido (primeira mensagem), permite processar
+        if (hasTeam && !isIATeam) {
+            server.log.info(`Skipping Flowise processing - team is not "ia" (current team: ${teamName})`);
             return;
         }
-        
-        console.log(`✅ PROCEEDING - Team is "ia"`);
         
         server.log.info("Processing Chatwoot message:", JSON.stringify(message, null, 2));
         
