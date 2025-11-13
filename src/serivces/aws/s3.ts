@@ -32,6 +32,21 @@ export async function downloadCatalogFromS3(): Promise<FormData> {
     return formData;
 }
 
+export async function downloadEarMapFromS3(): Promise<FormData> {
+    const response = await axios.get('https://aline-furo-humanizado.s3.us-east-1.amazonaws.com/documentos/furos.jpeg', { responseType: 'arraybuffer' });
+    const fileBuffer = Buffer.from(response.data);
+    const fileName = "mapa_de_furos.jpeg";
+
+    const formData = new FormData();
+
+    formData.append('attachments[]', fileBuffer, { filename: fileName });
+    formData.append('content', 'Aqui está o mapa de furos.');
+    formData.append('message_type', 'outgoing');
+    formData.append('private', 'false');
+
+    return formData;
+}
+
 export async function uploadImageToS3(base64Data: string, fileName: string): Promise<string> {
     const bucketName = process.env.AWS_BUCKET_NAME!;
     const fileKey = `${uuidv4()}-${fileName}`;
