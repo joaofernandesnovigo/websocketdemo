@@ -368,7 +368,7 @@ async function processChatwootMessage(message: any, conversation: any, webhookDa
             
             try {
                 // Envia a mensagem para o Flowise
-                const response = await sendMessage(session.id, message.content, conversation.id, CHATWOOT_ACCOUNT_ID);
+                const response = await sendMessage(session.id, message.content, conversation.id, message.account_id);
                 
                 server.log.info(`Flowise response received:`, {
                     sessionId: session.id,
