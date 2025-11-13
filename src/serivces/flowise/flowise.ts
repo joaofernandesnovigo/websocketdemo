@@ -1,13 +1,6 @@
 import { createFlowiseAPI, FlowiseQuestionData, postFlowiseMessage } from "./api";
 
-/**
- * Envia uma mensagem para o serviço Flowise usando um ID de websocket como identificador de sessão.
- * 
- * @param {string} websocketId - O identificador único da sessão websocket
- * @param {string} message - A mensagem de texto a ser enviada para o Flowise
- * @returns {Promise<any>} A resposta do serviço Flowise após o processamento da mensagem
- */
-export const sendMessage = async (websocketId: string, message: string) => {
+export const sendMessage = async (websocketId: string, message: string, conversation_id: number, account_id: number) => {
     const flowiseAPI = createFlowiseAPI();
     const messageData: FlowiseQuestionData = {
         question: message,
@@ -15,6 +8,8 @@ export const sendMessage = async (websocketId: string, message: string) => {
             sessionId: websocketId,
             vars: {
                 sessionId: websocketId,
+                conversationId: String(conversation_id),
+                accountId: String(account_id),
             },
         },
     };
@@ -22,7 +17,8 @@ export const sendMessage = async (websocketId: string, message: string) => {
     return await postFlowiseMessage(flowiseAPI, messageData);
 };
 
-export const sendContext = async (websocketId: string, message: string) => {
+// (Faça o mesmo para a função sendContext se for usá-la)
+export const sendContext = async (websocketId: string, message: string, conversation_id: number, account_id: number) => {
     const flowiseAPI = createFlowiseAPI();
     const messageData: FlowiseQuestionData = {
         question: message,
@@ -30,6 +26,8 @@ export const sendContext = async (websocketId: string, message: string) => {
             sessionId: websocketId,
             vars: {
                 sessionId: websocketId,
+                conversationId: String(conversation_id),
+                accountId: String(account_id),
             },
         },
     };
