@@ -119,6 +119,16 @@ export const sendCatalog = async (
     conversationId: number,
 ): Promise<ChatwootSendMessageResponse> => {
     const form = await downloadCatalogFromS3();
-    const response = await instance.post<ChatwootSendMessageResponse>(`/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, form);
+    
+    const response = await instance.post<ChatwootSendMessageResponse>(
+        `/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, 
+        form,
+        {
+            headers: {
+                ...form.getHeaders()
+            }
+        }
+    );
+    
     return response.data;
 }
