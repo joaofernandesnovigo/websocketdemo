@@ -125,6 +125,9 @@ const CHATWOOT_ACCOUNT_ID = parseInt(process.env.CHATWOOT_ACCOUNT_ID || "1", 10)
 const chatwootService = new ChatwootService(CHATWOOT_BASE_URL, CHATWOOT_ACCESS_TOKEN, CHATWOOT_ACCOUNT_ID);
 const sessionManager = new ChatwootSessionManager();
 
+// Set para rastrear mensagens já processadas e evitar duplicação
+const processedMessages = new Set<number>();
+
 // Log das configurações
 server.log.info("Chatwoot Configuration:", {
     CHATWOOT_BASE_URL,
@@ -176,6 +179,7 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
         const webhookData = request.body as any;
         
         // Verifica se é um evento de mensagem criada ou conversa criada (primeira mensagem)
+        // Prioriza message_created sobre conversation_created para evitar duplicação
         if (webhookData.event === "message_created" || webhookData.event === "conversation_created") {
             // No formato real do Chatwoot, os dados da mensagem estão no nível raiz
             // Para conversation_created, a mensagem pode estar em conversation.messages[0]
@@ -222,13 +226,20 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
                 (typeof message.message_type === "number" && message.message_type === 0)
             );
             
-            // Para conversation_created, também processa se houver conteúdo (primeira mensagem)
-            const shouldProcess = (isIncoming || webhookData.event === "conversation_created") 
+            // Para conversation_created, só processa se for incoming e não tiver sido processado via message_created
+            // Prioriza message_created sobre conversation_created
+            const shouldProcess = isIncoming 
                 && conversation 
                 && message 
                 && message.content;
             
             if (shouldProcess) {
+                // Verifica se a mensagem já foi processada (evita duplicação)
+                if (message.id && processedMessages.has(message.id)) {
+                    server.log.info(`Message ${message.id} already processed, skipping duplicate`);
+                    return { success: true, message: "Message already processed" };
+                }
+                
                 // VERIFICAÇÃO DO TIME - DEVE SER FEITA ANTES DE PROCESSAR
                 // Se o time não estiver definido (primeira mensagem), permite processar
                 // Se o time estiver definido e não for "ia", bloqueia
@@ -243,6 +254,16 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
                 if (hasTeam && !isIATeam) {
                     server.log.info(`Blocking message processing - team is not "ia" (current team: ${teamName})`);
                     return { success: true, message: "Message blocked - team is not 'ia'" };
+                }
+                
+                // Marca a mensagem como processada ANTES de processar
+                if (message.id) {
+                    processedMessages.add(message.id);
+                    // Limpa mensagens antigas do Set (mantém apenas as últimas 1000)
+                    if (processedMessages.size > 1000) {
+                        const firstId = Array.from(processedMessages)[0];
+                        processedMessages.delete(firstId);
+                    }
                 }
                 
                 // Permite processar se: time não está definido (primeira msg) OU time é "ia"
