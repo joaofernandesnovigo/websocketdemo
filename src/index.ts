@@ -10,6 +10,7 @@ import { ChatwootService } from "./serivces/chatwoot/chatwoot";
 import { ChatwootSessionManager } from "./serivces/chatwoot/session-manager";
 import { sendMessage } from "./serivces/flowise/flowise";
 import { sendCatalog } from "./serivces/chatwoot/api";
+import { tenantHook } from "./middleware/tenant";
 
 const server = Fastify({
     logger: !!process.env.SERVER_DEBUG && process.env.SERVER_DEBUG !== "false",
@@ -20,6 +21,9 @@ server.register(FastifySocketIo, {
     },
     cors: {},
 } as ServerOptions);
+
+// Register tenant middleware for all routes
+server.addHook("onRequest", tenantHook);
 
 server.get("/", { logLevel: "warn" }, async function handler (request, reply) {
     const data = await readFile(join(process.cwd(), "public/index.html"));
@@ -119,11 +123,27 @@ server.post("/test-send-chatwoot", async function handler (request, reply) {
 
 const chat = new ChatService({ server });
 
-// Configuração do Chatwoot
+// Helper function to get Chatwoot service for a tenant
+function getChatwootServiceForTenant(tenantId?: string, tenantProps?: any): ChatwootService | null {
+    if (tenantId && tenantProps?.chatwoot) {
+        const service = ChatwootService.fromTenantProps(tenantProps);
+        if (service) return service;
+    }
+    // Fallback to default env vars
+    const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL || "http://localhost:3000";
+    const CHATWOOT_ACCESS_TOKEN = process.env.CHATWOOT_ACCESS_TOKEN || "";
+    const CHATWOOT_ACCOUNT_ID = parseInt(process.env.CHATWOOT_ACCOUNT_ID || "1", 10);
+    if (CHATWOOT_BASE_URL && CHATWOOT_ACCESS_TOKEN && CHATWOOT_ACCOUNT_ID) {
+        return new ChatwootService(CHATWOOT_BASE_URL, CHATWOOT_ACCESS_TOKEN, CHATWOOT_ACCOUNT_ID);
+    }
+    return null;
+}
+
+// Default Chatwoot service (for backward compatibility)
 const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL || "http://localhost:3000";
 const CHATWOOT_ACCESS_TOKEN = process.env.CHATWOOT_ACCESS_TOKEN || "";
 const CHATWOOT_ACCOUNT_ID = parseInt(process.env.CHATWOOT_ACCOUNT_ID || "1", 10);
-const chatwootService = new ChatwootService(CHATWOOT_BASE_URL, CHATWOOT_ACCESS_TOKEN, CHATWOOT_ACCOUNT_ID);
+const defaultChatwootService = new ChatwootService(CHATWOOT_BASE_URL, CHATWOOT_ACCESS_TOKEN, CHATWOOT_ACCOUNT_ID);
 const sessionManager = new ChatwootSessionManager();
 
 // Set para rastrear mensagens já processadas e evitar duplicação
@@ -163,8 +183,9 @@ server.listen({
 server.post("/receive-message/:instanceId", { schema: receiveMessageSchema }, async function handler (request) {
     const token = request.headers.token as string;
     const { instanceId } = request.params as MiaRequestParams;
+    const tenantId = request.tenant?.tenantId;
 
-    const instance = await chat.getInstanceForSystemMessage(instanceId, token);
+    const instance = await chat.getInstanceForSystemMessage(instanceId, token, tenantId);
 
     const message = request.body as MiaMessageDto;
     chat.sendSystemMessage(instance, message);
@@ -174,6 +195,7 @@ server.post("/sendcatalog", async function handler (request) {
     const data = request.body as any;
     const accountId = data.account_id as number;
     const conversationId = data.conversation_id as number;
+    const chatwootService = getChatwootServiceForTenant(request.tenant?.tenantId, request.tenant?.tenant.props) || defaultChatwootService;
     const response = chatwootService.sendCatalogToChatwoot(accountId, conversationId);
 })
 
@@ -181,6 +203,7 @@ server.post("/sendearmap", async function handler (request) {
     const data = request.body as any;
     const accountId = data.account_id as number;
     const conversationId = data.conversation_id as number;
+    const chatwootService = getChatwootServiceForTenant(request.tenant?.tenantId, request.tenant?.tenant.props) || defaultChatwootService;
     const response = chatwootService.sendEarMapToChatwoot(accountId, conversationId);
 })
 
@@ -188,6 +211,7 @@ server.post("/sendportcursoinfan", async function handler (request) {
     const data = request.body as any;
     const accountId = data.account_id as number;
     const conversationId = data.conversation_id as number;
+    const chatwootService = getChatwootServiceForTenant(request.tenant?.tenantId, request.tenant?.tenant.props) || defaultChatwootService;
     const response = chatwootService.sendPortCursoInfan(accountId, conversationId);
 })
 
@@ -195,6 +219,7 @@ server.post("/sendlobuloplastia", async function handler (request) {
     const data = request.body as any;
     const accountId = data.account_id as number;
     const conversationId = data.conversation_id as number;
+    const chatwootService = getChatwootServiceForTenant(request.tenant?.tenantId, request.tenant?.tenant.props) || defaultChatwootService;
     const response = chatwootService.sendLobuloplastia(accountId, conversationId);
 })
 
@@ -296,7 +321,10 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
                 }
                 
                 // Permite processar se: time não está definido (primeira msg) OU time é "ia"
-                await processChatwootMessage(message, conversation, webhookData);
+                // Extract tenant from request if available
+                const tenantId = request.tenant?.tenantId;
+                const tenantProps = request.tenant?.tenant?.props;
+                await processChatwootMessage(message, conversation, webhookData, tenantId, tenantProps);
             } else {
                 server.log.info("Skipping outgoing message or missing conversation");
             }
@@ -315,7 +343,7 @@ server.post("/chatwoot-webhook", async function handler (request, reply) {
 });
 
 // Função para processar mensagens recebidas do Chatwoot
-async function processChatwootMessage(message: any, conversation: any, webhookData: any) {
+async function processChatwootMessage(message: any, conversation: any, webhookData: any, tenantId?: string, tenantProps?: any) {
     try {
         // Verifica se o time atribuído é "ia" - ANTES DE QUALQUER PROCESSAMENTO
         // Se o time não estiver definido (primeira mensagem), permite processar
@@ -380,29 +408,37 @@ async function processChatwootMessage(message: any, conversation: any, webhookDa
             
             server.log.info(`Sending text message to Flowise: ${message.content}`);
             
-            try {
-                // Envia a mensagem para o Flowise
-                const response = await sendMessage(session.id, message.content, conversation.id, CHATWOOT_ACCOUNT_ID);
-                
-                server.log.info(`Flowise response received:`, {
-                    sessionId: session.id,
-                    responseText: response.data.text,
-                    chatMessageId: response.data.chatMessageId
-                });
-
-                // Envia a resposta de volta para o Chatwoot
-                server.log.info(`Sending response to Chatwoot: ${response.data.text}`);
-                server.log.info(`Chatwoot Service Config:`, {
-                    baseUrl: CHATWOOT_BASE_URL,
-                    accountId: CHATWOOT_ACCOUNT_ID,
-                    conversationId: session.conversationId
-                });
-                
                 try {
-                    const chatwootResponse = await chatwootService.sendTextMessage(
-                        session.conversationId,
-                        response.data.text
+                    // Envia a mensagem para o Flowise
+                    const response = await sendMessage(
+                        session.id, 
+                        message.content, 
+                        conversation.id, 
+                        CHATWOOT_ACCOUNT_ID,
+                        tenantProps
                     );
+                    
+                    server.log.info(`Flowise response received:`, {
+                        sessionId: session.id,
+                        responseText: response.data.text,
+                        chatMessageId: response.data.chatMessageId
+                    });
+
+                    // Envia a resposta de volta para o Chatwoot
+                    server.log.info(`Sending response to Chatwoot: ${response.data.text}`);
+                    server.log.info(`Chatwoot Service Config:`, {
+                        baseUrl: CHATWOOT_BASE_URL,
+                        accountId: CHATWOOT_ACCOUNT_ID,
+                        conversationId: session.conversationId
+                    });
+                    
+                    try {
+                        // Use tenant-specific Chatwoot service if available
+                        const chatwootService = getChatwootServiceForTenant(tenantId, tenantProps) || defaultChatwootService;
+                        const chatwootResponse = await chatwootService.sendTextMessage(
+                            session.conversationId,
+                            response.data.text
+                        );
 
                     server.log.info(`Message sent to Chatwoot successfully:`, {
                         sessionId: session.id,

@@ -64,17 +64,21 @@ export class ChatService {
         }
         this._io = connectedServer.io;
 
-        this.io.on("connection", this.initSocket.bind(this));
+        this.io.on("connection", async (socket) => {
+            // Try to identify tenant from handshake
+            const tenantId = socket.handshake.auth.tenantId || socket.handshake.headers["x-tenant-id"];
+            await this.initSocket(socket, tenantId as string | undefined);
+        });
     }
 
-    async initSocket(socket: Socket) {
+    async initSocket(socket: Socket, tenantId?: string) {
         this.log.info(`Socket #${socket.id} ${socket.recovered ? "re-" : ""}connected`);
 
         socket.on("disconnect", () => {
             this.log.info(`Socket #${socket.id} disconnected`);
         });
 
-        const isInstanceValid = await this.initInstance(socket);
+        const isInstanceValid = await this.initInstance(socket, tenantId);
         if (!isInstanceValid) return;
 
         await this.initRoom(socket);
@@ -88,8 +92,8 @@ export class ChatService {
         this.listenForImages(socket);
     }
 
-    async initInstance(socket: Socket) {
-        socket.data.instance = await getInstanceByChatId(socket.handshake.auth.instance?.chatId || "");
+    async initInstance(socket: Socket, tenantId?: string) {
+        socket.data.instance = await getInstanceByChatId(socket.handshake.auth.instance?.chatId || "", tenantId);
         if (!socket.data.instance) {
             this.closeSocket(socket, "Chat Instance Error!");
             return;
@@ -102,12 +106,15 @@ export class ChatService {
             this.closeSocket(socket, "Instance Access Denied!");
             return false;
         }
+        // Store tenantId in socket data for later use
+        socket.data.tenantId = tenantId || socket.data.instance.tenantId;
         return true;
     }
 
     async initRoom(socket: Socket) {
         const roomId = socket.handshake.auth.roomId || v4();
-        this.log.info(`Init room ${roomId}`);
+        const tenantId = socket.data.tenantId;
+        this.log.info(`Init room ${roomId}${tenantId ? ` for tenant ${tenantId}` : ""}`);
 
         socket.data.roomId = roomId;
         socket.join(roomId);
@@ -120,7 +127,7 @@ export class ChatService {
         });
 
         if (socket.handshake.auth.roomId) {
-            socket.data.person = await getRoomPerson(roomId);
+            socket.data.person = await getRoomPerson(roomId, tenantId);
             if (socket.data.person) {
                 this.sendPersonDataToClient(socket);
             }
@@ -129,7 +136,8 @@ export class ChatService {
 
     async initConversation(socket: Socket) {
         if (!socket.recovered) {
-            const messages = await getRoomMessages(socket.data.roomId, socket.data.instance.id);
+            const tenantId = socket.data.tenantId;
+            const messages = await getRoomMessages(socket.data.roomId, socket.data.instance.id, tenantId);
             this.log.info(`Sending initial messages: ${messages.length}`);
 
             const mappedMessages = messages.map(mapMessageDTO);
@@ -143,7 +151,9 @@ export class ChatService {
         this.log.info("Setting up context listener for socket");
         socket.on(EVENTS.EVENT_SET_CONTEXT, async ({ context }: ContextSetterDTO) => {
             try {
+                const tenantId = socket.data.tenantId;
                 const contextString = context ? `<Context>${context}<IMPORTANT>This message is for context pourposes and must be ignored DO NOT call any tool from this message </IMPORTANT></Context>Hi` : "Error fetching user context data.";
+                // Note: sendContext would need tenantProps, but for now we'll use default
                 sendContext(socket.data.roomId, contextString);
                 const id = v4();
                 const messageDbRow: MessageDbRow = {
@@ -158,7 +168,7 @@ export class ChatService {
                     actor: MessageActors.System,
                     createdAt: new Date().toISOString(),
                 };
-                messageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
+                messageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`, tenantId);
 
             } catch (e) {
                 this.log.error(`Send context to Mia error ${e}`);
@@ -171,6 +181,7 @@ export class ChatService {
         this.log.info("Setting up image listener for socket");
         socket.on(EVENTS.EVENT_UPLOAD_IMAGE, async ({ data, fileName }: NewImageDto) => {
             try {
+                const tenantId = socket.data.tenantId;
                 const imageId = v4();
                 const imageUri = await uploadImageToS3(data, fileName);
 
@@ -207,7 +218,7 @@ export class ChatService {
                     createdAt: message.createdAt,
                 };
 
-                await imageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
+                await imageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`, tenantId);
                 this.log.info(`Image message saved: ${imageId}`);
 
             } catch (e) {
@@ -254,8 +265,10 @@ export class ChatService {
             const fallbackFromLang = fromLang || "EN-US";
 
             if (!isAttendant && !this.openTickets.includes(roomId)) {
+                const tenantId = socket.data.tenantId;
                 // this.log.info(`| ${process.env.IA_GATEWAY} | ${process.env.CHATFLOW_ID} |`);
                 try {
+                    // Note: sendMessage would need tenantProps, but for now we'll use default
                     const response = await sendMessage(socket.data.roomId, content, 1, 1);
 
                     this.log.info(`Send message ${response.data.text}`);
@@ -278,7 +291,7 @@ export class ChatService {
                         actor: MessageActors.Assistant,
                         createdAt: new Date().toISOString(),
                     };
-                    messageSender(answerDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
+                    messageSender(answerDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`, tenantId);
                 } catch (e) {
                     this.log.error(`Saving Agent message to db error: ${e}`);
                     console.error(`Saving Agent message to db error: ${e}`);
@@ -314,7 +327,8 @@ export class ChatService {
                     actor: isAttendant ? MessageActors.Assistant : MessageActors.User,
                     createdAt: message.createdAt,
                 };
-                messageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`);
+                const tenantId = socket.data.tenantId;
+                messageSender(messageDbRow, socket.data.instance.props.chat.id, `${socket.data.roomId}@${CHAT_CHANNEL_DOMAIN}`, tenantId);
                 // this.log.info(sla)
             } catch (e) {
                 this.log.error(`Saving Client message to db error: ${e}`);
@@ -377,8 +391,8 @@ export class ChatService {
         });
     }
 
-    async getInstanceForSystemMessage(instanceId: number, systemToken: string) {
-        const instance = await getInstanceById(instanceId);
+    async getInstanceForSystemMessage(instanceId: number, systemToken: string, tenantId?: string) {
+        const instance = await getInstanceById(instanceId, tenantId);
         if (!instance) {
             throw Error("Instance Error!");
         }

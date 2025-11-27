@@ -1,5 +1,6 @@
 import { createChatwootAPI, sendCatalog, sendChatwootMessage, sendEarMap, sendLobuloplastia, sendPortCursoInfan } from "./api";
 import { ChatwootSendMessageRequest, ChatwootSendMessageResponse } from "../../types";
+import { TenantProps } from "../../types/tenant";
 
 /**
  * Serviço principal para comunicação com o Chatwoot.
@@ -11,6 +12,21 @@ export class ChatwootService {
     constructor(baseUrl: string, accessToken: string, accountId: number) {
         this.api = createChatwootAPI(baseUrl, accessToken);
         this.accountId = accountId;
+    }
+
+    /**
+     * Cria uma instância do ChatwootService a partir das propriedades do tenant.
+     */
+    static fromTenantProps(tenantProps: TenantProps): ChatwootService | null {
+        const chatwootConfig = tenantProps?.chatwoot;
+        if (!chatwootConfig?.baseUrl || !chatwootConfig?.accessToken || !chatwootConfig?.accountId) {
+            return null;
+        }
+        return new ChatwootService(
+            chatwootConfig.baseUrl,
+            chatwootConfig.accessToken,
+            chatwootConfig.accountId
+        );
     }
 
     /**
