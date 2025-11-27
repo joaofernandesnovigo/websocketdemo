@@ -184,6 +184,20 @@ server.post("/sendearmap", async function handler (request) {
     const response = chatwootService.sendEarMapToChatwoot(accountId, conversationId);
 })
 
+server.post("/sendportcursoinfan", async function handler (request) {
+    const data = request.body as any;
+    const accountId = data.account_id as number;
+    const conversationId = data.conversation_id as number;
+    const response = chatwootService.sendPortCursoInfan(accountId, conversationId);
+})
+
+server.post("/sendlobuloplastia", async function handler (request) {
+    const data = request.body as any;
+    const accountId = data.account_id as number;
+    const conversationId = data.conversation_id as number;
+    const response = chatwootService.sendLobuloplastia(accountId, conversationId);
+})
+
 // Webhook endpoint para receber mensagens do Chatwoot
 server.post("/chatwoot-webhook", async function handler (request, reply) {
     try {

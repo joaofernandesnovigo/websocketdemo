@@ -17,6 +17,36 @@ const s3 = new S3Client({
     },
 });
 
+export async function downloadLobuloplastia(): Promise<FormData> {
+    const response = await axios.get('https://aline-furo-humanizado.s3.us-east-1.amazonaws.com/documentos/Lobuloplastia+Enf.Aline.pdf', { responseType: 'arraybuffer' });
+    const fileBuffer = Buffer.from(response.data);
+    const fileName = "catalogo.pdf";
+
+    const formData = new FormData();
+
+    formData.append('attachments[]', fileBuffer, { filename: fileName });
+    formData.append('content', 'Assim que você olhar o portfólio, me chama aqui 💜✨');
+    formData.append('message_type', 'outgoing');
+    formData.append('private', 'false');
+
+    return formData;
+}
+
+export async function downloadPortCursoInfan(): Promise<FormData> {
+    const response = await axios.get('https://aline-furo-humanizado.s3.us-east-1.amazonaws.com/documentos/Port.Curso+Infantil.pdf.pdf', { responseType: 'arraybuffer' });
+    const fileBuffer = Buffer.from(response.data);
+    const fileName = "catalogo.pdf";
+
+    const formData = new FormData();
+
+    formData.append('attachments[]', fileBuffer, { filename: fileName });
+    formData.append('content', 'Aqui você pode verificar o portfólio completo do curso. ✨');
+    formData.append('message_type', 'outgoing');
+    formData.append('private', 'false');
+
+    return formData;
+}
+
 export async function downloadCatalogFromS3(): Promise<FormData> {
     const response = await axios.get('https://aline-furo-humanizado.s3.us-east-1.amazonaws.com/documentos/Aline+Furo+Humanizado+.pdf', { responseType: 'arraybuffer' });
     const fileBuffer = Buffer.from(response.data);

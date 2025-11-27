@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import { ChatwootSendMessageRequest, ChatwootSendMessageResponse } from "../../types";
 import FormData from 'form-data';
-import { downloadCatalogFromS3, downloadEarMapFromS3 } from "../aws/s3";
+import { downloadCatalogFromS3, downloadEarMapFromS3, downloadLobuloplastia, downloadPortCursoInfan } from "../aws/s3";
 
 /**
  * Cria e configura uma instância do Axios para comunicação com a API do Chatwoot.
@@ -139,6 +139,46 @@ export const sendEarMap = async (
     conversationId: number,
 ): Promise<ChatwootSendMessageResponse> => {
     const form = await downloadEarMapFromS3();
+    
+    const response = await instance.post<ChatwootSendMessageResponse>(
+        `/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, 
+        form,
+        {
+            headers: {
+                ...form.getHeaders()
+            }
+        }
+    );
+    
+    return response.data;
+}
+
+export const sendPortCursoInfan = async (
+    instance: AxiosInstance,
+    accountId: number,
+    conversationId: number,
+): Promise<ChatwootSendMessageResponse> => {
+    const form = await downloadPortCursoInfan();
+    
+    const response = await instance.post<ChatwootSendMessageResponse>(
+        `/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, 
+        form,
+        {
+            headers: {
+                ...form.getHeaders()
+            }
+        }
+    );
+    
+    return response.data;
+}
+
+export const sendLobuloplastia = async (
+    instance: AxiosInstance,
+    accountId: number,
+    conversationId: number,
+): Promise<ChatwootSendMessageResponse> => {
+    const form = await downloadLobuloplastia();
     
     const response = await instance.post<ChatwootSendMessageResponse>(
         `/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, 
