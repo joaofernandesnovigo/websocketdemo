@@ -202,7 +202,7 @@ server.post("/sendportinfan", async function handler (request) {
     const data = request.body as any;
     const accountId = data.account_id as number;
     const conversationId = data.conversation_id as number;
-    const response = chatwootService.sendLobuloplastia(accountId, conversationId);
+    const response = chatwootService.sendpPortInfan(accountId, conversationId);
 })
 
 // Webhook endpoint para receber mensagens do Chatwoot
