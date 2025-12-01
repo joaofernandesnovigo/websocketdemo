@@ -1,4 +1,4 @@
-import { createChatwootAPI, sendCatalog, sendChatwootMessage, sendEarMap, sendLobuloplastia, sendPortCursoInfan } from "./api";
+import { createChatwootAPI, sendCatalog, sendChatwootMessage, sendEarMap, sendLobuloplastia, sendPortCursoInfan, sendPortInfan } from "./api";
 import { ChatwootSendMessageRequest, ChatwootSendMessageResponse } from "../../types";
 
 /**
@@ -46,6 +46,6 @@ export class ChatwootService {
     }
 
     async sendpPortInfan(accountId: number, conversationId: number): Promise<ChatwootSendMessageResponse> {
-        return await sendLobuloplastia(this.api, accountId, conversationId);
+        return await sendPortInfan(this.api, accountId, conversationId);
     }
 }
