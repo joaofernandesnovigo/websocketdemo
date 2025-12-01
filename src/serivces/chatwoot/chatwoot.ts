@@ -44,4 +44,8 @@ export class ChatwootService {
     async sendLobuloplastia(accountId: number, conversationId: number): Promise<ChatwootSendMessageResponse> {
         return await sendLobuloplastia(this.api, accountId, conversationId);
     }
+
+    async sendpPortInfan(accountId: number, conversationId: number): Promise<ChatwootSendMessageResponse> {
+        return await sendLobuloplastia(this.api, accountId, conversationId);
+    }
 }

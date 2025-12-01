@@ -192,3 +192,23 @@ export const sendLobuloplastia = async (
     
     return response.data;
 }
+
+export const sendPortInfan = async (
+    instance: AxiosInstance,
+    accountId: number,
+    conversationId: number,
+): Promise<ChatwootSendMessageResponse> => {
+    const form = await downloadLobuloplastia();
+    
+    const response = await instance.post<ChatwootSendMessageResponse>(
+        `/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`, 
+        form,
+        {
+            headers: {
+                ...form.getHeaders()
+            }
+        }
+    );
+    
+    return response.data;
+}
